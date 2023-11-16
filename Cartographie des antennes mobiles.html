@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Cartographie des antennes mobiles</title>
+    <style>
+        /* Styles pour le corps de la page */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        /* Styles pour le formulaire */
+        #mapForm {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: auto;
+            width: 50%;
+        }
+
+        /* Styles pour les champs de saisie et les boutons */
+        input[type="text"], input[type="number"], input[type="radio"], input[type="submit"] {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin: 4px 0;
+        }
+
+		/* Styles pour les boutons de soumission et les boutons généraux */
+		input[type="submit"], input[type="button"] {
+			background-color: #4CAF50;
+			color: white;
+			padding: 12px 20px;
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+		}
+
+		input[type="submit"]:hover, input[type="button"]:hover {
+			background-color: #45a049;
+		}
+
+        /* Styles pour les iframes */
+        #mapContainer iframe {
+            width: 100%;
+            height: 800px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 15px;
+        }
+
+        /* Styles pour les noms des opérateurs */
+        .operatorName {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+
+        /* Styles pour les messages de chargement */
+        .loadingMessage {
+            color: #666;
+            font-style: italic;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Formulaire pour la saisie des données -->
+    <form id="mapForm">
+        <label for="latitude">Latitude :</label>
+        <input type="text" id="latitude" name="latitude" required><br><br>
+
+        <label for="longitude">Longitude :</label>
+        <input type="text" id="longitude" name="longitude" required><br><br>
+		<!-- Bouton pour la géolocalisation -->
+		<input type="button" value="Utiliser ma position actuelle" id="geolocateButton">
+
+        <label for="radius">Rayon (en mètres) :</label>
+        <input type="number" id="radius" name="radius" required><br><br>
+
+        <input type="radio" id="metropole" name="region" value="metropole" required>
+        <label for="metropole">Métropole</label><br>
+        <input type="radio" id="antilles" name="region" value="antilles">
+        <label for="antilles">Antilles-Guyane</label><br><br>
+
+        <input type="submit" value="Afficher les cartes">
+    </form>
+
+    <!-- Conteneur pour les iframes -->
+    <div id="mapContainer"></div>
+
+    <!-- Script JavaScript pour la gestion des iframes et des messages de chargement -->
+	<script>
+		// Écouteur d'événement sur le formulaire pour la soumission
+		document.getElementById('mapForm').addEventListener('submit', function(e) {
+			e.preventDefault();
+
+			// Récupération et nettoyage des données de latitude et longitude
+			let latitude = document.getElementById('latitude').value.replace(',', '.');
+			let longitude = document.getElementById('longitude').value.replace(',', '.');
+			let radius = document.getElementById('radius').value;
+
+			// Validation des entrées
+			if (!isValidLatitude(latitude)) {
+				alert('Veuillez entrer une latitude valide (entre -90 et 90).');
+				return;
+			}
+			if (!isValidLongitude(longitude)) {
+				alert('Veuillez entrer une longitude valide (entre -180 et 180).');
+				return;
+			}
+			if (!isValidRadius(radius)) {
+				alert('Veuillez entrer un rayon positif et inférieur à 6 371 kilomètres.');
+				return;
+			}
+
+			// Détermination de la région et sélection des opérateurs correspondants
+			const region = document.querySelector('input[name="region"]:checked').value;
+			let operators = determineOperators(region);
+
+			// Réinitialisation du conteneur des cartes
+			document.getElementById('mapContainer').innerHTML = '';
+			operators.forEach(op => {
+				displayOperatorName(op, region); // Affichage du nom de l'opérateur
+				createIframe(op, latitude, longitude, radius, region); // Création de l'iframe
+			});
+		});
+
+		// Fonction pour déterminer les opérateurs en fonction de la région
+		function determineOperators(region) {
+			if (region === 'metropole') {
+				return ['ORANGE', 'BOUYGUES%20TELECOM', 'SFR', 'FREE%20MOBILE'];
+			} else {
+				return ['ORANGE', 'FREE%20CARAIBES', 'DIGICEL', 'OUTREMER%20TELECOM'];
+			}
+		}
+
+		// Fonction pour afficher le nom de l'opérateur
+		function displayOperatorName(operator, region) {
+			const operatorName = document.createElement('div');
+			operatorName.classList.add('operatorName');
+			operatorName.textContent = getOperatorDisplayName(operator, region);
+			document.getElementById('mapContainer').appendChild(operatorName);
+		}
+
+		// Fonction pour obtenir le nom affiché de l'opérateur
+		function getOperatorDisplayName(operator, region) {
+			if (region === 'antilles') {
+				if (operator === 'ORANGE') {
+					return 'ORANGE CARAIBES';
+				} else if (operator === 'OUTREMER%20TELECOM') {
+					return 'SFR CARAIBES';
+				}
+			}
+			return operator.replace('%20', ' ');
+		}
+
+		// Fonction pour créer et ajouter un iframe
+		function createIframe(operator, latitude, longitude, radius, region) {
+			const loadingMessage = createLoadingMessage();
+			document.getElementById('mapContainer').appendChild(loadingMessage);
+
+			const iframe = document.createElement('iframe');
+			iframe.style = "margin-top: 10px;";
+			iframe.allow = "geolocation";
+			iframe.onload = function() {
+				loadingMessage.remove(); // Retirer le message de chargement
+			};
+
+			const zoomLevel = calculateZoomLevel(radius);
+			const src = buildIframeSrc(operator, latitude, longitude, radius, zoomLevel);
+			iframe.src = src;
+
+			document.getElementById('mapContainer').appendChild(iframe);
+		}
+
+		// Fonction pour construire la source de l'iframe
+		function buildIframeSrc(operator, latitude, longitude, radius, zoomLevel) {
+			return `https://data.anfr.fr/anfr/visualisation/frame/map/?id=dd11fac6-4531-4a27-9c8c-a3a9e4ec2107&refine.adm_lb_nom=${operator}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&geofilter.distance=${latitude},${longitude},${radius}&location=${zoomLevel},${latitude},${longitude}&basemap=undefined&static=false&datasetcard=true&scrollWheelZoom=true`;
+		}
+
+		// Fonction pour créer un message de chargement
+		function createLoadingMessage() {
+			const loadingMessage = document.createElement('div');
+			loadingMessage.textContent = "Chargement des données depuis le portail Open Data de l'ANFR...";
+			loadingMessage.classList.add('loadingMessage');
+			return loadingMessage;
+		}
+
+		// Fonctions de validation pour la latitude et la longitude
+		function isValidLatitude(lat) {
+			lat = parseFloat(lat);
+			return !isNaN(lat) && lat >= -90 && lat <= 90;
+		}
+
+		function isValidLongitude(lon) {
+			lon = parseFloat(lon);
+			return !isNaN(lon) && lon >= -180 && lon <= 180;
+		}
+
+		function isValidRadius(radius) {
+			radius = parseFloat(radius);
+			const maxRadius = 6371000; // Rayon de la Terre en mètres
+			return !isNaN(radius) && radius > 0 && radius <= maxRadius;
+		}
+
+		// Fonction pour calculer le niveau de zoom basé sur le rayon
+		function calculateZoomLevel(radius) {
+			// Logique de calcul du niveau de zoom basée sur le rayon
+			radius = parseFloat(radius);
+			if (radius <= 35) {
+				return 20;
+			} else if (radius <= 70) {
+				return 19;
+			} else if (radius <= 140) {
+				return 18;
+			} else if (radius <= 270) {
+				return 17;
+			} else if (radius <= 550) {
+				return 16;
+			} else if (radius <= 1100) {
+				return 15;
+			} else if (radius <= 2200) {
+				return 14;
+			} else if (radius <= 4400) {
+				return 13;
+			} else if (radius <= 8800) {
+				return 12;
+			} else {
+				return 11; // Pour les rayons plus grands
+			}
+		}
+
+		// Ajout d'un écouteur d'événement pour le bouton de géolocalisation
+		document.getElementById('geolocateButton').addEventListener('click', function() {
+			if (navigator.geolocation) {
+				navigator.geolocation.getCurrentPosition(showPosition, showError);
+			} else {
+				alert("La géolocalisation n'est pas prise en charge par ce navigateur.");
+			}
+		});
+
+		// Fonction appelée lorsque la géolocalisation réussit
+		function showPosition(position) {
+			document.getElementById('latitude').value = position.coords.latitude.toFixed(6);
+			document.getElementById('longitude').value = position.coords.longitude.toFixed(6);
+		}
+
+		// Fonction appelée en cas d'erreur de géolocalisation
+		function showError(error) {
+			switch(error.code) {
+				case error.PERMISSION_DENIED:
+					alert("L'utilisateur a refusé la demande de géolocalisation.");
+					break;
+				case error.POSITION_UNAVAILABLE:
+					alert("Les informations de localisation ne sont pas disponibles.");
+					break;
+				case error.TIMEOUT:
+					alert("La demande d'obtenir la position de l'utilisateur a expiré.");
+					break;
+				case error.UNKNOWN_ERROR:
+					alert("Une erreur inconnue s'est produite.");
+					break;
+			}
+		}
+	</script>
+</body>
+</html>
