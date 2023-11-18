@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Cartographie des antennes mobiles</title>
+    <title>Cartographie des Antennes Mobiles</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         /* Styles généraux */
@@ -93,6 +93,64 @@
             text-align: center;
         }
 
+		#antennasTable button {
+			background-color: #007bff; /* Bleu */
+			color: white; /* Écriture blanche */
+			border: none;
+			padding: 10px 15px;
+			text-align: center;
+			text-decoration: none;
+			display: inline-block;
+			font-size: 16px;
+			margin: 4px 2px;
+			cursor: pointer;
+			border-radius: 5px; /* Angles arrondis */
+		}
+
+
+		#antennasTable {
+			width: 100%;
+			border-collapse: collapse;
+		}
+
+		#antennasTable th, #antennasTable td {
+			border: 1px solid #ddd;
+			padding: 8px;
+			text-align: center;
+		}
+
+		@media screen and (max-width: 600px) {
+			#antennasTable thead {
+				display: none;
+			}
+
+			#antennasTable, #antennasTable tbody, #antennasTable tr, #antennasTable td {
+				display: block;
+				width: 100%;
+			}
+
+			#antennasTable tr {
+				margin-bottom: 15px;
+			}
+
+			#antennasTable td {
+				text-align: right;
+				position: relative;
+				padding-left: 50%;
+			}
+
+			#antennasTable td::before {
+				content: attr(data-label);
+				position: absolute;
+				left: 0;
+				width: 50%;
+				padding-left: 15px;
+				font-weight: bold;
+				text-align: left;
+			}
+		}
+
+
         /* Media queries pour les écrans plus petits */
         @media (max-width: 767px) {
             /* Agrandir les champs de saisie, les boutons et le texte */
@@ -114,15 +172,15 @@
 
     <!-- Section d'information masquée -->
     <div id="infoSection">
-        <p>Cette page permet de visualiser les antennes mobiles dans une zone spécifique. Entrez des coordonnées géographiques (ou récupérez votre position en cliquant sur "Utiliser ma position actuelle", un rayon de recherche, et choisissez entre la Métropole et les Antilles-Guyane (ce qui déterminera les opérateurs à afficher). Appuyez sur "Afficher les cartes" pour voir les résultats.</p>
+        <p>Cette page permet de visualiser les antennes mobiles dans une zone spécifique. Vous pouvez entrer des coordonnées géographiques, un rayon de recherche, et choisir entre la Métropole et les Antilles-Guyane. Appuyez sur "Afficher les cartes" pour voir les résultats.</p>
     </div>
 
     <!-- Formulaire pour la saisie des données -->
     <form id="mapForm">
-        <label for="latitude">Latitude (en degrés) :</label>
+        <label for="latitude">Latitude :</label>
         <input type="text" id="latitude" name="latitude" required><br><br>
 
-        <label for="longitude">Longitude (en degrés) :</label>
+        <label for="longitude">Longitude :</label>
         <input type="text" id="longitude" name="longitude" required><br><br>
 		
 		<!-- Bouton pour la géolocalisation -->
@@ -139,6 +197,27 @@
 
         <input type="submit" value="Afficher les cartes">
     </form>
+
+	<!-- Tableau de présentation de résultats -->
+	<table id="antennasTable">
+		<thead>
+			<tr>
+				<th>Opérateur</th>
+				<th>Total d'antennes</th>
+				<th>2G</th>
+				<th>3G</th>
+				<th>4G</th>
+				<th>5G</th>
+			</tr>
+		</thead>
+		<tbody>
+			<!-- Les lignes seront ajoutées dynamiquement ici -->
+		</tbody>
+	</table>
+
+
+    <!-- Conteneur pour le résumé des antennes -->
+    <div id="antennaSummary"></div>
 
     <!-- Conteneur pour les iframes -->
     <div id="mapContainer"></div>
@@ -181,13 +260,18 @@
 			const region = document.querySelector('input[name="region"]:checked').value;
 			let operators = determineOperators(region);
 
-			// Réinitialisation du conteneur des cartes
+			// Réinitialisation du conteneur des cartes, du résumé, et du tableau des antennes
 			document.getElementById('mapContainer').innerHTML = '';
-			operators.forEach(op => {
-				displayOperatorName(op, region); // Affichage du nom de l'opérateur
-				createIframe(op, latitude, longitude, radius, region); // Création de l'iframe
-			});
-		});
+			document.getElementById('antennaSummary').innerHTML = '';
+			document.getElementById('antennasTable').getElementsByTagName('tbody')[0].innerHTML = '';
+
+
+            // Traitement pour chaque opérateur
+            operators.forEach(op => {
+                displayOperatorName(op, region, latitude, longitude, radius); // Affichage du nom de l'opérateur
+                getTotalAntennasCount(op, latitude, longitude, radius); // Récupération du nombre d'antennes
+            });
+        });
 
 		// Fonction pour déterminer les opérateurs en fonction de la région
 		function determineOperators(region) {
@@ -198,16 +282,33 @@
 			}
 		}
 
-		// Fonction pour afficher le nom de l'opérateur
-		function displayOperatorName(operator, region) {
-			const operatorName = document.createElement('div');
-			operatorName.classList.add('operatorName');
-			operatorName.textContent = getOperatorDisplayName(operator, region);
-			document.getElementById('mapContainer').appendChild(operatorName);
+		// Fonction pour afficher le nom de l'opérateur et récupérer le nombre total d'antennes
+		function displayOperatorName(operator, region, latitude, longitude, radius) {
+			const operatorDisplayName = getOperatorDisplayName(operator, region);
+			const operatorApiName = getOperatorApiName(operator);
+			const generations = ['2G', '3G', '4G', '5G'];
+			
+			Promise.all(generations.map(generation => {
+				return new Promise((resolve) => {
+					getAntennasCountByGeneration(operatorApiName, latitude, longitude, radius, generation, (gen, count) => {
+						resolve({ generation: gen, count: count });
+					});
+				});
+			})).then(results => {
+				const totalAntennas = results.reduce((total, current) => total + current.count, 0);
+				const detailsByGeneration = results.reduce((details, current) => {
+					details[current.generation] = current.count;
+					return details;
+				}, {});
+
+				updateAntennaSummary(operatorDisplayName, totalAntennas, detailsByGeneration, latitude, longitude, radius, region);
+			});
 		}
 
-		// Fonction pour obtenir le nom affiché de l'opérateur
+
+
 		function getOperatorDisplayName(operator, region) {
+			// Traitement pour l'affichage
 			if (region === 'antilles') {
 				if (operator === 'ORANGE') {
 					return 'ORANGE CARAIBES';
@@ -218,24 +319,110 @@
 			return operator.replace('%20', ' ');
 		}
 
+		function getOperatorApiName(operator) {
+			// Traitement pour l'utilisation dans l'API
+			return operator.replace(' ', '%20');
+		}
+		
+		function updateAntennaSummary(operator, totalAntennas, detailsByGeneration, latitude, longitude, radius, region) {
+			const tableBody = document.getElementById('antennasTable').getElementsByTagName('tbody')[0];
+			const newRow = tableBody.insertRow();
+			newRow.insertCell().textContent = operator;
+			newRow.insertCell().textContent = totalAntennas;
+			Object.entries(detailsByGeneration).forEach(([generation, count]) => {
+				newRow.insertCell().textContent = `${count} antennes`;
+			});
+
+			// Ajouter un bouton Détails
+			const detailButton = document.createElement('button');
+			detailButton.textContent = 'Détails';
+			detailButton.onclick = () => toggleIframe(operator, latitude, longitude, radius, region);
+			newRow.insertCell().appendChild(detailButton);
+
+			// Créer un conteneur pour l'iframe
+			const iframeContainer = document.createElement('div');
+			iframeContainer.id = `iframe-container-${operator}`;
+			iframeContainer.style.display = 'none';
+			const newRowForIframe = tableBody.insertRow();
+			const cellForIframe = newRowForIframe.insertCell();
+			cellForIframe.colSpan = 6;
+			cellForIframe.appendChild(iframeContainer);
+		}
+
+		function toggleIframe(operator, latitude, longitude, radius, region) {
+			const iframeContainer = document.getElementById(`iframe-container-${operator}`);
+			if (!iframeContainer.hasChildNodes()) {
+				createIframe(operator, latitude, longitude, radius, region, iframeContainer);
+			} else {
+				iframeContainer.style.display = iframeContainer.style.display === 'none' ? 'block' : 'none';
+			}
+		}
+
+
+		
+		// Fonction pour obtenir le nombre d'antennes par génération
+		function getAntennasCountByGeneration(operator, latitude, longitude, radius, generation, callback) {
+			const url = `https://data.anfr.fr/api/records/1.0/search/?dataset=dd11fac6-4531-4a27-9c8c-a3a9e4ec2107&refine.adm_lb_nom=${operator}&refine.generation=${generation}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&lang=fr&geofilter.distance=${latitude},${longitude},${radius}`;
+			
+			fetch(url)
+				.then(response => response.json())
+				.then(data => {
+				    console.log(`Résultats pour ${generation}:`, data.records.length);
+					callback(generation, data.records.length);
+				})
+				.catch(error => console.error('Erreur lors de la récupération des données:', error));
+		}
+
+		// Fonction pour obtenir le total des antennes par opérateur
+		function getTotalAntennasCount(operator, latitude, longitude, radius) {
+			const generations = ['2G', '3G', '4G', '5G'];
+			const results = {};
+
+			generations.forEach(generation => {
+				getAntennasCountByGeneration(operator, latitude, longitude, radius, generation, (gen, count) => {
+					results[gen] = count;
+
+					// Vérifier si toutes les générations ont été traitées
+					if (Object.keys(results).length === generations.length) {
+						displayAntennasCount(operator, results);
+					}
+				});
+			});
+		}
+
+		function displayAntennasCount(operator, results) {
+			const summaryContent = document.createElement('div');
+			summaryContent.setAttribute('data-operator', operator);
+			
+			let textContent = `${operator}: `;
+			for (let [generation, count] of Object.entries(results)) {
+				textContent += `${generation} - ${count} antennes; `;
+			}
+
+			summaryContent.textContent = textContent;
+			document.getElementById('results-container').appendChild(summaryContent); // Assurez-vous que cet ID existe dans votre HTML
+		}
+
 		// Fonction pour créer et ajouter un iframe
-		function createIframe(operator, latitude, longitude, radius, region) {
+		function createIframe(operator, latitude, longitude, radius, region, container) {
 			const loadingMessage = createLoadingMessage();
-			document.getElementById('mapContainer').appendChild(loadingMessage);
+			container.appendChild(loadingMessage);
 
 			const iframe = document.createElement('iframe');
-			iframe.style = "margin-top: 10px;";
+			iframe.style = "width: 100%; height: 400px;";
 			iframe.allow = "geolocation";
 			iframe.onload = function() {
-				loadingMessage.remove(); // Retirer le message de chargement
+				loadingMessage.remove();
 			};
 
 			const zoomLevel = calculateZoomLevel(radius);
 			const src = buildIframeSrc(operator, latitude, longitude, radius, zoomLevel);
 			iframe.src = src;
 
-			document.getElementById('mapContainer').appendChild(iframe);
+			container.appendChild(iframe);
+			container.style.display = 'block';
 		}
+
 
 		// Fonction pour construire la source de l'iframe
 		function buildIframeSrc(operator, latitude, longitude, radius, zoomLevel) {
