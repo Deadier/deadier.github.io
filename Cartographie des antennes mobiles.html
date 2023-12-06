@@ -141,6 +141,11 @@
 
 			#antennasTable td::before {
 				content: attr(data-label);
+				font-weight: bold;
+				display: block;
+
+			#antennasTable td::before {
+				content: attr(data-label);
 				position: absolute;
 				left: 0;
 				width: 50%;
@@ -172,10 +177,9 @@
 
     <!-- Section d'information masquée -->
 	<div id="infoSection">
-	    <p>Cette page permet de visualiser les antennes mobiles dans une zone spécifique. Vous pouvez entrer des coordonnées géographiques, un rayon de recherche, et choisir entre la Métropole et les Antilles-Guyane. Appuyez sur "Afficher les cartes" pour voir les résultats.</p>
-	    <p>Données originales téléchargées sur le jeu de données <a href="https://data.anfr.fr/anfr/visualisation/information/?id=dd11fac6-4531-4a27-9c8c-a3a9e4ec2107">Données sur les réseaux mobiles</a> de l’ANFR.</p>
+		<p>Cette page permet de visualiser les antennes mobiles dans une zone spécifique. Vous pouvez entrer des coordonnées géographiques, un rayon de recherche, et choisir entre la Métropole et les Antilles-Guyane. Appuyez sur "Afficher les cartes" pour voir les résultats.</p>
+		<p>Données originales téléchargées sur le jeu de données <a href="https://data.anfr.fr/anfr/visualisation/information/?id=dd11fac6-4531-4a27-9c8c-a3a9e4ec2107">Données sur les réseaux mobiles</a> de l’ANFR</p>
 	</div>
-
 
     <!-- Formulaire pour la saisie des données -->
     <form id="mapForm">
@@ -217,15 +221,12 @@
 		</tbody>
 	</table>
 
-
-    <!-- Conteneur pour le résumé des antennes -->
-    <div id="antennaSummary"></div>
-
     <!-- Conteneur pour les iframes -->
     <div id="mapContainer"></div>
 
     <!-- Script JavaScript pour la gestion des iframes et des messages de chargement -->
 	<script>
+
 	        document.getElementById('infoButton').addEventListener('click', function() {
 	            var infoSection = document.getElementById('infoSection');
 	            if (infoSection.style.display === "none") {
@@ -234,7 +235,7 @@
 	                infoSection.style.display = "none";
 	            }
 	        });
-		
+
 		// Écouteur d'événement sur le formulaire pour la soumission
 		document.getElementById('mapForm').addEventListener('submit', function(e) {
 			e.preventDefault();
@@ -264,7 +265,6 @@
 
 			// Réinitialisation du conteneur des cartes, du résumé, et du tableau des antennes
 			document.getElementById('mapContainer').innerHTML = '';
-			document.getElementById('antennaSummary').innerHTML = '';
 			document.getElementById('antennasTable').getElementsByTagName('tbody')[0].innerHTML = '';
 
 
@@ -282,6 +282,12 @@
 			} else {
 				return ['ORANGE', 'FREE%20CARAIBES', 'DIGICEL', 'OUTREMER%20TELECOM'];
 			}
+		}
+
+		// Fonction pour ouvrir la carte dans un nouvel onglet
+		function openMapInNewTab(operator, latitude, longitude, radius, region) {
+			const mapUrl = buildMapUrl(operator, latitude, longitude, radius, region);
+			window.open(mapUrl, '_blank');
 		}
 
 		// Fonction pour afficher le nom de l'opérateur et récupérer le nombre total d'antennes
@@ -329,19 +335,33 @@
 		function updateAntennaSummary(operator, totalAntennas, detailsByGeneration, latitude, longitude, radius, region) {
 			const tableBody = document.getElementById('antennasTable').getElementsByTagName('tbody')[0];
 			const newRow = tableBody.insertRow();
-			newRow.insertCell().textContent = operator;
-			newRow.insertCell().textContent = totalAntennas;
+
+			// Colonne Opérateur
+			const cellOperator = newRow.insertCell();
+			cellOperator.textContent = operator;
+			cellOperator.setAttribute('data-label', 'Opérateur');
+
+			// Colonne Total d'antennes
+			const cellTotal = newRow.insertCell();
+			cellTotal.textContent = totalAntennas;
+			cellTotal.setAttribute('data-label', 'Total d\'antennes');
+
+			// Colonnes pour chaque génération (2G, 3G, 4G, 5G)
 			Object.entries(detailsByGeneration).forEach(([generation, count]) => {
-				newRow.insertCell().textContent = `${count} antennes`;
+				const cell = newRow.insertCell();
+				cell.textContent = `${count} antennes`;
+				cell.setAttribute('data-label', generation);
 			});
 
-			// Ajouter un bouton Détails
+			// Colonne pour le bouton Détails
 			const detailButton = document.createElement('button');
 			detailButton.textContent = 'Détails';
-			detailButton.onclick = () => toggleIframe(operator, latitude, longitude, radius, region);
-			newRow.insertCell().appendChild(detailButton);
+			detailButton.onclick = () => openMapInNewTab(operator, latitude, longitude, radius, region);
+			const cellButton = newRow.insertCell();
+			cellButton.appendChild(detailButton);
+			cellButton.setAttribute('data-label', 'Détails');
 
-			// Créer un conteneur pour l'iframe
+			// Création d'un conteneur pour l'iframe
 			const iframeContainer = document.createElement('div');
 			iframeContainer.id = `iframe-container-${operator}`;
 			iframeContainer.style.display = 'none';
@@ -349,6 +369,13 @@
 			const cellForIframe = newRowForIframe.insertCell();
 			cellForIframe.colSpan = 6;
 			cellForIframe.appendChild(iframeContainer);
+		}
+
+		// Fonction pour construire l'URL de la carte
+		function buildMapUrl(operator, latitude, longitude, radius, region) {
+			operator = operator.replace(' ', '%20'); // Assurez-vous que le nom de l'opérateur est formaté correctement
+			const zoomLevel = calculateZoomLevel(radius);
+			return `https://data.anfr.fr/visualisation/frame/map/?id=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&geofilter.distance=${latitude},${longitude},${radius}&location=${zoomLevel},${latitude},${longitude}&datasetcard=true&scrollWheelZoom=true`;
 		}
 
 		function toggleIframe(operator, latitude, longitude, radius, region) {
@@ -360,11 +387,10 @@
 			}
 		}
 
-
 		
 		// Fonction pour obtenir le nombre d'antennes par génération
 		function getAntennasCountByGeneration(operator, latitude, longitude, radius, generation, callback) {
-			const url = `https://data.anfr.fr/api/records/1.0/search/?dataset=dd11fac6-4531-4a27-9c8c-a3a9e4ec2107&refine.adm_lb_nom=${operator}&refine.generation=${generation}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&lang=fr&geofilter.distance=${latitude},${longitude},${radius}`;
+			const url = `https://data.anfr.fr/d4c/api/records/1.0/search/dataset=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.generation=${generation}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&lang=fr&geofilter.distance=${latitude},${longitude},${radius}`;
 			
 			fetch(url)
 				.then(response => response.json())
@@ -428,7 +454,10 @@
 
 		// Fonction pour construire la source de l'iframe
 		function buildIframeSrc(operator, latitude, longitude, radius, zoomLevel) {
-			return `https://data.anfr.fr/anfr/visualisation/frame/map/?id=dd11fac6-4531-4a27-9c8c-a3a9e4ec2107&refine.adm_lb_nom=${operator}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&geofilter.distance=${latitude},${longitude},${radius}&location=${zoomLevel},${latitude},${longitude}&basemap=undefined&static=false&datasetcard=true&scrollWheelZoom=true`;
+			// Remplacement des espaces par %20 pour les noms d'opérateurs
+			operator = operator.replace(' ', '%20');
+			// Construction de l'URL
+			return `https://data.anfr.fr/visualisation/frame/map/?id=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&geofilter.distance=${latitude},${longitude},${radius}&refine.generation=5G&refine.generation=3G&location=${zoomLevel},${latitude},${longitude}&datasetcard=true&scrollWheelZoom=true`;
 		}
 
 		// Fonction pour créer un message de chargement
