@@ -178,6 +178,7 @@
     <!-- Section d'information masquée -->
 	<div id="infoSection">
 		<p>Cette page permet de visualiser les antennes mobiles dans une zone spécifique. Vous pouvez entrer des coordonnées géographiques, un rayon de recherche, et choisir entre la Métropole et les Antilles-Guyane. Appuyez sur "Afficher les cartes" pour voir les résultats.</p>
+		<p>Attention ! Le nombre d'antennes renvoyées par l'API est limité à 1000 cellules par génération par opérateur.</p>
 		<p>Données originales téléchargées sur le jeu de données <a href="https://data.anfr.fr/visualisation/information/?id=observatoire_2g_3g_4g">Données sur les réseaux mobiles</a> de l’ANFR</p>
 	</div>
 
@@ -390,7 +391,7 @@
 		
 		// Fonction pour obtenir le nombre d'antennes par génération
 		function getAntennasCountByGeneration(operator, latitude, longitude, radius, generation, callback) {
-			const url = `https://data.anfr.fr/d4c/api/records/1.0/search/dataset=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.generation=${generation}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&lang=fr&geofilter.distance=${latitude},${longitude},${radius}`;
+			const url = `https://data.anfr.fr/d4c/api/records/1.0/search/rows=1000&dataset=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.generation=${generation}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&lang=fr&geofilter.distance=${latitude},${longitude},${radius}`;
 			
 			fetch(url)
 				.then(response => response.json())
