@@ -18,6 +18,8 @@ Lors de l'accès aux données JSON fournies par l'ANFR, des problèmes de CORS (
 -   Pour Google Chrome, utilisez l'extension "CORS Unblock": [Chrome Web Store](https://chromewebstore.google.com/detail/cors-unblock/lfhmikememgdcahcdlaciloancbhjino)
 -   Pour Firefox, utilisez "CORS Unblock": [Firefox Add-ons](https://addons.mozilla.org/fr/firefox/addon/cors-unblock/)
 
+-   Sur smartphone Android, le navigateur Firefox permet l'utilisation d'extensions, utilisez "Allow CORS: Access-Control-Allow-Origin": [Firefox Add-ons](https://addons.mozilla.org/fr/android/addon/access-control-allow-origin/)
+
 ## Technologies utilisées
 
 -   HTML
