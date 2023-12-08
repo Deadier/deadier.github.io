@@ -93,6 +93,7 @@
             text-align: center;
         }
 
+		/* Style pour les boutons dans le tableau des antennes */
 		#antennasTable button {
 			background-color: #007bff; /* Bleu */
 			color: white; /* Écriture blanche */
@@ -107,43 +108,50 @@
 			border-radius: 5px; /* Angles arrondis */
 		}
 
-
+		/* Style pour la table des antennes */
 		#antennasTable {
 			width: 100%;
 			border-collapse: collapse;
 		}
 
+		/* Style pour les en-têtes et les cellules du tableau */
 		#antennasTable th, #antennasTable td {
 			border: 1px solid #ddd;
-			padding: 8px;
+			padding: 8px 0;
 			text-align: center;
 		}
 
+		/* Styles pour les petits écrans (moins de 600px de large) */
 		@media screen and (max-width: 600px) {
 			#antennasTable thead {
 				display: none;
 			}
 
+			/* Styles pour le tableau et ses éléments en affichage bloc */
 			#antennasTable, #antennasTable tbody, #antennasTable tr, #antennasTable td {
 				display: block;
-				width: 100%;
+				//width: 100%;
 			}
 
+			/* Marge inférieure pour chaque ligne du tableau */
 			#antennasTable tr {
 				margin-bottom: 15px;
 			}
 
+			/* Alignement du texte et positionnement des cellules */
 			#antennasTable td {
-				text-align: right;
+				// text-align: right;
 				position: relative;
-				padding-left: 50%;
+				// padding-left: 50%;
 			}
 
+			/* Styles pour le pseudo-élément ::before dans les cellules du tableau */
 			#antennasTable td::before {
 				content: attr(data-label);
 				font-weight: bold;
 				display: block;
 
+			/* Styles pour le pseudo-élément avant chaque cellule */
 			#antennasTable td::before {
 				content: attr(data-label);
 				position: absolute;
@@ -227,15 +235,16 @@
 
     <!-- Script JavaScript pour la gestion des iframes et des messages de chargement -->
 	<script>
-
-	        document.getElementById('infoButton').addEventListener('click', function() {
-	            var infoSection = document.getElementById('infoSection');
-	            if (infoSection.style.display === "none") {
-	                infoSection.style.display = "block";
-	            } else {
-	                infoSection.style.display = "none";
-	            }
-	        });
+		// Gestion du bouton d'information
+		document.getElementById('infoButton').addEventListener('click', function() {
+			var infoSection = document.getElementById('infoSection');
+			// Affiche ou cache la section d'information
+			if (infoSection.style.display === "none") {
+				infoSection.style.display = "block";
+			} else {
+				infoSection.style.display = "none";
+			}
+		});
 
 		// Écouteur d'événement sur le formulaire pour la soumission
 		document.getElementById('mapForm').addEventListener('submit', function(e) {
@@ -278,6 +287,7 @@
 
 		// Fonction pour déterminer les opérateurs en fonction de la région
 		function determineOperators(region) {
+		    // Retourne les opérateurs selon la région choisie
 			if (region === 'metropole') {
 				return ['ORANGE', 'BOUYGUES%20TELECOM', 'SFR', 'FREE%20MOBILE'];
 			} else {
@@ -315,9 +325,9 @@
 		}
 
 
-
+		// Fonction pour obtenir le nom affiché de l'opérateur
 		function getOperatorDisplayName(operator, region) {
-			// Traitement pour l'affichage
+			// Traite les noms d'opérateurs pour l'affichage selon la région
 			if (region === 'antilles') {
 				if (operator === 'ORANGE') {
 					return 'ORANGE CARAIBES';
@@ -328,11 +338,13 @@
 			return operator.replace('%20', ' ');
 		}
 
+		// Fonction pour obtenir le nom de l'opérateur formaté pour l'utilisation dans l'API
 		function getOperatorApiName(operator) {
-			// Traitement pour l'utilisation dans l'API
+			// Remplace les espaces par %20 pour une utilisation correcte dans les URL
 			return operator.replace(' ', '%20');
 		}
 		
+		// Fonction pour mettre à jour le résumé des antennes
 		function updateAntennaSummary(operator, totalAntennas, detailsByGeneration, latitude, longitude, radius, region) {
 			const tableBody = document.getElementById('antennasTable').getElementsByTagName('tbody')[0];
 			const newRow = tableBody.insertRow();
@@ -379,6 +391,7 @@
 			return `https://data.anfr.fr/visualisation/frame/map/?id=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&geofilter.distance=${latitude},${longitude},${radius}&location=${zoomLevel},${latitude},${longitude}&datasetcard=true&scrollWheelZoom=true`;
 		}
 
+		// Fonction pour afficher ou masquer l'iframe (plus utilisée our l'instant)
 		function toggleIframe(operator, latitude, longitude, radius, region) {
 			const iframeContainer = document.getElementById(`iframe-container-${operator}`);
 			if (!iframeContainer.hasChildNodes()) {
@@ -419,6 +432,7 @@
 			});
 		}
 
+		// Fonction pour afficher le nombre d'antennes par génération
 		function displayAntennasCount(operator, results) {
 			const summaryContent = document.createElement('div');
 			summaryContent.setAttribute('data-operator', operator);
@@ -432,7 +446,7 @@
 			document.getElementById('results-container').appendChild(summaryContent); // Assurez-vous que cet ID existe dans votre HTML
 		}
 
-		// Fonction pour créer et ajouter un iframe
+		// Fonction pour créer et ajouter un iframe (plus utilisée pour l'instant)
 		function createIframe(operator, latitude, longitude, radius, region, container) {
 			const loadingMessage = createLoadingMessage();
 			container.appendChild(loadingMessage);
@@ -453,7 +467,7 @@
 		}
 
 
-		// Fonction pour construire la source de l'iframe
+		// Fonction pour construire la source de l'iframe (plus utilisée pour l'instant)
 		function buildIframeSrc(operator, latitude, longitude, radius, zoomLevel) {
 			// Remplacement des espaces par %20 pour les noms d'opérateurs
 			operator = operator.replace(' ', '%20');
@@ -469,7 +483,7 @@
 			return loadingMessage;
 		}
 
-		// Fonctions de validation pour la latitude et la longitude
+		// Fonctions de validation pour la latitude, la longitude et le rayon
 		function isValidLatitude(lat) {
 			lat = parseFloat(lat);
 			return !isNaN(lat) && lat >= -90 && lat <= 90;
