@@ -76,7 +76,7 @@
             text-align: center;
         }
 
-        /* Styles pour le conteneur des iframes */
+        /* Styles pour le conteneur des iframes (plus utilisée pour l'instant)*/
         #mapContainer iframe {
             width: 100%;
             height: 800px;
@@ -92,6 +92,34 @@
             margin-top: 15px;
             text-align: center;
         }
+
+		/* Style pour le sélecteur de région */
+		.region-selector {
+			display: flex;
+			justify-content: center;
+			margin: 20px 0;
+		}
+
+		/* Style pour les labels des boutons radio */
+		.region-label {
+			border: 2px solid #007bff;
+			padding: 10px 20px;
+			margin: 0 10px;
+			border-radius: 5px;
+			cursor: pointer;
+			transition: background-color 0.3s ease;
+		}
+
+		/* Masquer les boutons radio eux-mêmes */
+		input[type="radio"] {
+			display: none;
+		}
+
+		/* Style pour le label lorsque son bouton radio associé est sélectionné */
+		input[type="radio"]:checked + .region-label {
+			background-color: #007bff;
+			color: white;
+		}
 
 		/* Style pour les boutons dans le tableau des antennes */
 		#antennasTable button {
@@ -205,10 +233,14 @@
         <input type="number" id="radius" name="radius" required><br><br>
 
         <label for="radius">Zone de recherche :</label><br><br>
-        <input type="radio" id="metropole" name="region" value="metropole" required>
-        <label for="metropole">Métropole</label><br>
-        <input type="radio" id="antilles" name="region" value="antilles">
-        <label for="antilles">Antilles-Guyane</label><br><br>
+		<div class="region-selector">
+			<input type="radio" id="metropole" name="region" value="metropole" checked>
+			<label for="metropole" class="region-label">Métropole</label>
+
+			<input type="radio" id="antilles" name="region" value="antilles">
+			<label for="antilles" class="region-label">Antilles-Guyane</label>
+		</div>
+		<br>
 
         <input type="submit" value="Afficher les cartes">
     </form>
@@ -238,8 +270,9 @@
 		// Gestion du bouton d'information
 		document.getElementById('infoButton').addEventListener('click', function() {
 			var infoSection = document.getElementById('infoSection');
-			// Affiche ou cache la section d'information
-    			if (infoSection.style.display === "none" || infoSection.style.display === "") {
+			
+			// Basculer la visibilité de la section d'informations
+			if (infoSection.style.display === "none" || infoSection.style.display === "") {
 				infoSection.style.display = "block";
 			} else {
 				infoSection.style.display = "none";
