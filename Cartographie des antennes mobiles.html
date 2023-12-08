@@ -239,7 +239,7 @@
 		document.getElementById('infoButton').addEventListener('click', function() {
 			var infoSection = document.getElementById('infoSection');
 			// Affiche ou cache la section d'information
-			if (infoSection.style.display === "none") {
+    			if (infoSection.style.display === "none" || infoSection.style.display === "") {
 				infoSection.style.display = "block";
 			} else {
 				infoSection.style.display = "none";
