@@ -419,9 +419,21 @@
 
 		// Fonction pour construire l'URL de la carte
 		function buildMapUrl(operator, latitude, longitude, radius, region) {
-			operator = operator.replace(' ', '%20'); // Assurez-vous que le nom de l'opérateur est formaté correctement
-			const zoomLevel = calculateZoomLevel(radius);
-			return `https://data.anfr.fr/visualisation/frame/map/?id=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&geofilter.distance=${latitude},${longitude},${radius}&location=${zoomLevel},${latitude},${longitude}&datasetcard=true&scrollWheelZoom=true`;
+		    // Traitement des noms d'opérateurs spécifiques pour la région Antilles-Guyane
+		    if (region === 'antilles') {
+		        if (operator === 'SFR CARAIBES') {
+		            operator = 'OUTREMER%20TELECOM'; // Remplacer SFR CARAIBES par OUTREMER TELECOM
+		        } else if (operator === 'ORANGE CARAIBES') {
+		            operator = 'ORANGE'; // Remplacer ORANGE CARAIBES par ORANGE
+		        }
+		    }
+		
+		    // S'assurer que le nom de l'opérateur est formaté correctement pour une URL
+		    operator = operator.replace(' ', '%20');
+		
+		    // Construction de l'URL
+		    const zoomLevel = calculateZoomLevel(radius);
+		    return `https://data.anfr.fr/visualisation/frame/map/?id=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&geofilter.distance=${latitude},${longitude},${radius}&location=${zoomLevel},${latitude},${longitude}&datasetcard=true&scrollWheelZoom=true`;
 		}
 
 		// Fonction pour afficher ou masquer l'iframe (plus utilisée our l'instant)
