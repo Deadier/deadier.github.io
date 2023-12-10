@@ -76,7 +76,7 @@
             text-align: center;
         }
 
-        /* Styles pour le conteneur des iframes (plus utilisée pour l'instant)*/
+        /* Styles pour le conteneur des iframes (plus utilisée pour l'instant) S*/
         #mapContainer iframe {
             width: 100%;
             height: 800px;
@@ -200,7 +200,7 @@
                 padding: 12px 15px;
             }
 
-            /* Ajuster la hauteur des iframes pour les petits écrans */
+            /* Ajuster la hauteur des iframes pour les petits écrans (plus utilisé pour l'instant */
             #mapContainer iframe {
                 height: 300px;
             }
@@ -213,9 +213,9 @@
 
     <!-- Section d'information masquée -->
 	<div id="infoSection">
-		<p>Cette page permet de compter et visualiser les antennes de téléphonie dans une zone spécifique. Vous pouvez entrer des coordonnées géographiques, un rayon de recherche, et choisir entre la Métropole et les Antilles-Guyane. Appuyez sur "Afficher les cartes" pour voir les résultats.</p>
+		<p>Cette page permet de compter et visualiser les antennes de téléphonie mobile et les pylônes dans une zone spécifique par opérateur. Vous pouvez entrer des coordonnées géographiques, un rayon de recherche, et choisir entre la Métropole et les Antilles-Guyane. Appuyez sur "Afficher les cartes" pour voir les résultats.</p>
 		<p>Attention ! Le nombre d'antennes renvoyées par l'API est limité à 1000 antennes par génération par opérateur.</p>
-		<p>Données originales téléchargées sur le jeu de données <a href="https://data.anfr.fr/visualisation/information/?id=observatoire_2g_3g_4g">Données sur les réseaux mobiles</a> de l’ANFR</p>
+		<p>Données originales téléchargées sur le jeu de données <a href="https://data.anfr.fr/visualisation/information/?id=observatoire_2g_3g_4g" target="_blank">Données sur les réseaux mobiles</a> de l’ANFR</p>
 	</div>
 
     <!-- Formulaire pour la saisie des données -->
@@ -255,6 +255,7 @@
 				<th>3G</th>
 				<th>4G</th>
 				<th>5G</th>
+				<th>Nombre de pylônes</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -262,10 +263,10 @@
 		</tbody>
 	</table>
 
-    <!-- Conteneur pour les iframes -->
+    <!-- Conteneur pour les iframes (plus utilsé pour l'instant) -->
     <div id="mapContainer"></div>
 
-    <!-- Script JavaScript pour la gestion des iframes et des messages de chargement -->
+    <!-- Script JavaScript pour la gestion des iframes et des messages de chargement (plus utilsé pour l'instant) -->
 	<script>
 		// Gestion du bouton d'information
 		document.getElementById('infoButton').addEventListener('click', function() {
@@ -378,7 +379,7 @@
 		}
 		
 		// Fonction pour mettre à jour le résumé des antennes
-		function updateAntennaSummary(operator, totalAntennas, detailsByGeneration, latitude, longitude, radius, region) {
+		async function updateAntennaSummary(operator, totalAntennas, detailsByGeneration, latitude, longitude, radius, region) {
 			const tableBody = document.getElementById('antennasTable').getElementsByTagName('tbody')[0];
 			const newRow = tableBody.insertRow();
 
@@ -399,6 +400,12 @@
 				cell.setAttribute('data-label', generation);
 			});
 
+			// Colonne pour le nombre de pylônes
+			const pylonsCount = await countPylonsForOperator(operator, latitude, longitude, radius);
+			const cellPylons = newRow.insertCell();
+			cellPylons.textContent = `${pylonsCount} pylônes`;
+			cellPylons.setAttribute('data-label', 'Nombre de pylônes');
+
 			// Colonne pour le bouton Détails
 			const detailButton = document.createElement('button');
 			detailButton.textContent = 'Détails';
@@ -407,14 +414,39 @@
 			cellButton.appendChild(detailButton);
 			cellButton.setAttribute('data-label', 'Détails');
 
-			// Création d'un conteneur pour l'iframe
+			/*
+			// Création d'un conteneur pour l'iframe (plus utilisé pour l'instant)
 			const iframeContainer = document.createElement('div');
 			iframeContainer.id = `iframe-container-${operator}`;
 			iframeContainer.style.display = 'none';
 			const newRowForIframe = tableBody.insertRow();
 			const cellForIframe = newRowForIframe.insertCell();
-			cellForIframe.colSpan = 6;
+			cellForIframe.colSpan = 7; // Mise à jour pour inclure la nouvelle colonne
 			cellForIframe.appendChild(iframeContainer);
+			*/
+		}
+
+
+		// Fonction pour compter les pylônes uniques pour un opérateur donné
+		async function countPylonsForOperator(operator, latitude, longitude, radius) {
+			try {
+				const baseUrl = "https://data.anfr.fr/d4c/api/records/1.0/search/";
+				const query = `facet=sup_id&rows=1000&dataset=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&lang=fr&geofilter.distance=${latitude},${longitude},${radius}`;
+				const response = await fetch(baseUrl + query);
+				const data = await response.json();
+
+				const uniquePylons = new Set();
+				data.records.forEach(record => {
+					if (record.fields.sup_id) {
+						uniquePylons.add(record.fields.sup_id);
+					}
+				});
+
+				return uniquePylons.size;
+			} catch (error) {
+				console.error("Erreur lors de la requête à l'API pour l'opérateur " + operator, error);
+				return 0;
+			}
 		}
 
 		// Fonction pour construire l'URL de la carte
@@ -488,7 +520,7 @@
 			}
 
 			summaryContent.textContent = textContent;
-			// document.getElementById('results-container').appendChild(summaryContent); //Plus utilisé
+			//document.getElementById('results-container').appendChild(summaryContent); // Assurez-vous que cet ID existe dans votre HTML
 		}
 
 		// Fonction pour créer et ajouter un iframe (plus utilisée pour l'instant)
