@@ -149,7 +149,7 @@
 			vertical-align: middle;
 			margin-right: 5px; /* Espace entre le logo et le nom de l'opérateur */
 		}
-	    
+
 		/* Style pour les en-têtes et les cellules du tableau */
 		#antennasTable th, #antennasTable td {
 			border: 1px solid #ddd;
@@ -445,16 +445,38 @@
 
 		// Fonction pour compter les pylônes uniques pour un opérateur donné
 		async function countPylonsForOperator(operator, latitude, longitude, radius, region) {
-		    try {
-		        // Correspondance des noms d'opérateurs pour la région Antilles-Guyane
-		        if (region === 'antilles') {
-		            if (operator === 'SFR CARAIBES') {
-		                operator = 'OUTREMER%20TELECOM'; // Remplacer SFR CARAIBES par OUTREMER TELECOM
-		            } else if (operator === 'ORANGE CARAIBES') {
-		                operator = 'ORANGE'; // Remplacer ORANGE CARAIBES par ORANGE
-		            }
-		        }
-		
+			try {
+				// Correspondance des noms d'opérateurs pour la région Antilles-Guyane
+				if (region === 'antilles') {
+					if (operator === 'SFR CARAIBES') {
+						operator = 'OUTREMER%20TELECOM'; // Remplacer SFR CARAIBES par OUTREMER TELECOM
+					} else if (operator === 'ORANGE CARAIBES') {
+						operator = 'ORANGE'; // Remplacer ORANGE CARAIBES par ORANGE
+					}
+				}
+
+				// Formater correctement le nom de l'opérateur pour une URL
+				operator = operator.replace(' ', '%20');
+
+				const baseUrl = "https://data.anfr.fr/d4c/api/records/1.0/search/";
+				const query = `facet=sup_id&rows=1000&dataset=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&lang=fr&geofilter.distance=${latitude},${longitude},${radius}`;
+				const response = await fetch(baseUrl + query);
+				const data = await response.json();
+
+				const uniquePylons = new Set();
+				data.records.forEach(record => {
+					if (record.fields.sup_id) {
+						uniquePylons.add(record.fields.sup_id);
+					}
+				});
+
+				return uniquePylons.size;
+			} catch (error) {
+				console.error("Erreur lors de la requête à l'API pour l'opérateur " + operator, error);
+				return 0;
+			}
+		}
+
 		// Fonction pour obtenir l'URL du logo en fonction de l'opérateur
 		function getOperatorLogoUrl(operator) {
 			const logos = {
@@ -468,28 +490,6 @@
 				'FREE CARAIBES': 'https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/Free_caraibe.svg'
 			};
 			return logos[operator] || ''; // Retourne l'URL du logo ou une chaîne vide si non trouvé
-		}
-		
-		        // Formater correctement le nom de l'opérateur pour une URL
-		        operator = operator.replace(' ', '%20');
-		
-		        const baseUrl = "https://data.anfr.fr/d4c/api/records/1.0/search/";
-		        const query = `facet=sup_id&rows=1000&dataset=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&lang=fr&geofilter.distance=${latitude},${longitude},${radius}`;
-		        const response = await fetch(baseUrl + query);
-		        const data = await response.json();
-		
-		        const uniquePylons = new Set();
-		        data.records.forEach(record => {
-		            if (record.fields.sup_id) {
-		                uniquePylons.add(record.fields.sup_id);
-		            }
-		        });
-		
-		        return uniquePylons.size;
-		    } catch (error) {
-		        console.error("Erreur lors de la requête à l'API pour l'opérateur " + operator, error);
-		        return 0;
-		    }
 		}
 
 		// Fonction pour construire l'URL de la carte
