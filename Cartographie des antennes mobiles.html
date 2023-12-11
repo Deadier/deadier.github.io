@@ -401,7 +401,7 @@
 			});
 
 			// Colonne pour le nombre de pylônes
-			const pylonsCount = await countPylonsForOperator(operator, latitude, longitude, radius);
+			const pylonsCount = await countPylonsForOperator(operator, latitude, longitude, radius, region);
 			const cellPylons = newRow.insertCell();
 			cellPylons.textContent = `${pylonsCount} pylônes`;
 			cellPylons.setAttribute('data-label', 'Nombre de pylônes');
@@ -426,27 +426,38 @@
 			*/
 		}
 
-
 		// Fonction pour compter les pylônes uniques pour un opérateur donné
-		async function countPylonsForOperator(operator, latitude, longitude, radius) {
-			try {
-				const baseUrl = "https://data.anfr.fr/d4c/api/records/1.0/search/";
-				const query = `facet=sup_id&rows=1000&dataset=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&lang=fr&geofilter.distance=${latitude},${longitude},${radius}`;
-				const response = await fetch(baseUrl + query);
-				const data = await response.json();
-
-				const uniquePylons = new Set();
-				data.records.forEach(record => {
-					if (record.fields.sup_id) {
-						uniquePylons.add(record.fields.sup_id);
-					}
-				});
-
-				return uniquePylons.size;
-			} catch (error) {
-				console.error("Erreur lors de la requête à l'API pour l'opérateur " + operator, error);
-				return 0;
-			}
+		async function countPylonsForOperator(operator, latitude, longitude, radius, region) {
+		    try {
+		        // Correspondance des noms d'opérateurs pour la région Antilles-Guyane
+		        if (region === 'antilles') {
+		            if (operator === 'SFR CARAIBES') {
+		                operator = 'OUTREMER%20TELECOM'; // Remplacer SFR CARAIBES par OUTREMER TELECOM
+		            } else if (operator === 'ORANGE CARAIBES') {
+		                operator = 'ORANGE'; // Remplacer ORANGE CARAIBES par ORANGE
+		            }
+		        }
+		
+		        // Formater correctement le nom de l'opérateur pour une URL
+		        operator = operator.replace(' ', '%20');
+		
+		        const baseUrl = "https://data.anfr.fr/d4c/api/records/1.0/search/";
+		        const query = `facet=sup_id&rows=1000&dataset=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&lang=fr&geofilter.distance=${latitude},${longitude},${radius}`;
+		        const response = await fetch(baseUrl + query);
+		        const data = await response.json();
+		
+		        const uniquePylons = new Set();
+		        data.records.forEach(record => {
+		            if (record.fields.sup_id) {
+		                uniquePylons.add(record.fields.sup_id);
+		            }
+		        });
+		
+		        return uniquePylons.size;
+		    } catch (error) {
+		        console.error("Erreur lors de la requête à l'API pour l'opérateur " + operator, error);
+		        return 0;
+		    }
 		}
 
 		// Fonction pour construire l'URL de la carte
