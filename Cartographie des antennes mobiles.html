@@ -76,7 +76,7 @@
             text-align: center;
         }
 
-        /* Styles pour le conteneur des iframes (plus utilisée pour l'instant) S*/
+        /* Styles pour le conteneur des iframes (plus utilisée pour l'instant) */
         #mapContainer iframe {
             width: 100%;
             height: 800px;
@@ -142,6 +142,14 @@
 			border-collapse: collapse;
 		}
 
+		/* Style pour le logo opérateur */
+		.operator-logo {
+			height: 30px; /* Ajustez cette valeur selon vos besoins */
+			width: auto;
+			vertical-align: middle;
+			margin-right: 5px; /* Espace entre le logo et le nom de l'opérateur */
+		}
+	    
 		/* Style pour les en-têtes et les cellules du tableau */
 		#antennasTable th, #antennasTable td {
 			border: 1px solid #ddd;
@@ -383,9 +391,18 @@
 			const tableBody = document.getElementById('antennasTable').getElementsByTagName('tbody')[0];
 			const newRow = tableBody.insertRow();
 
-			// Colonne Opérateur
+			// Colonne Opérateur avec logo
 			const cellOperator = newRow.insertCell();
-			cellOperator.textContent = operator;
+			
+			// Créer l'élément img pour le logo
+			const logoImg = document.createElement('img');
+			logoImg.src = getOperatorLogoUrl(operator); // Fonction pour obtenir l'URL du logo
+			logoImg.alt = `Logo ${operator}`;
+			logoImg.className = 'operator-logo'; // Classe pour le style CSS
+
+			// Ajouter le logo et le nom de l'opérateur à la cellule
+			cellOperator.appendChild(logoImg);
+			cellOperator.appendChild(document.createTextNode(` ${operator}`));
 			cellOperator.setAttribute('data-label', 'Opérateur');
 
 			// Colonne Total d'antennes
@@ -437,6 +454,21 @@
 		                operator = 'ORANGE'; // Remplacer ORANGE CARAIBES par ORANGE
 		            }
 		        }
+		
+		// Fonction pour obtenir l'URL du logo en fonction de l'opérateur
+		function getOperatorLogoUrl(operator) {
+			const logos = {
+				'BOUYGUES TELECOM': 'https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/Bouygues_Telecom.svg',
+				'DIGICEL': 'https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/Digicel.svg',
+				'ORANGE CARAIBES': 'https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/Orange_Caraibe.svg',
+				'ORANGE': 'https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/Orange.svg',
+				'SFR': 'https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/SFR.svg',
+				'SFR CARAIBES': 'https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/SFR_caraibe.svg',
+				'FREE MOBILE': 'https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/Free_mobile.svg',
+				'FREE CARAIBES': 'https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/Free_caraibe.svg'
+			};
+			return logos[operator] || ''; // Retourne l'URL du logo ou une chaîne vide si non trouvé
+		}
 		
 		        // Formater correctement le nom de l'opérateur pour une URL
 		        operator = operator.replace(' ', '%20');
