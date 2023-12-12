@@ -291,42 +291,6 @@
 			}
 		});
 
-		// Ajout d'un écouteur d'événement sur le bouton pour afficher la date de dernière mise à jour des données
-		document.getElementById('updateDateButton').addEventListener('click', function() {
-			// Envoi d'une requête à l'API pour récupérer les données
-			fetch('https://data.anfr.fr/d4c/api/datasets/2.0/search/facet.field=%5B%22organization%22,%22tags%22,%22themes%22,%22features%22%5D&rows=12&start=0')
-				.then(response => response.json()) // Conversion de la réponse en JSON
-				.then(data => {
-					// Recherche du dataset spécifique dans les résultats
-					const dataset = data.result.results.find(d => d.id === "dd11fac6-4531-4a27-9c8c-a3a9e4ec2107");
-
-					// Vérification si le dataset et la section 'resources' existent
-					if (dataset && dataset.resources) {
-						// Recherche de la ressource spécifique par son ID
-						const resource = dataset.resources.find(r => r.id === "88ef0887-6b0f-4d3f-8545-6d64c8f597da");
-						if (resource && resource.last_modified) {
-							// Conversion de la date ISO en objet Date
-							const date = new Date(resource.last_modified);
-							// Formatage de la date en format JJ/MM/AAAA HH:MM:SS
-							const formattedDate = date.toLocaleDateString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit' }) + " " + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-							// Affichage de la date formatée
-							document.getElementById('lastUpdateDate').textContent = "Dernière mise à jour : " + formattedDate;
-						} else {
-							// Message si la date de dernière mise à jour n'est pas trouvée
-							document.getElementById('lastUpdateDate').textContent = "Date de dernière mise à jour non trouvée dans les ressources";
-						}
-					} else {
-						// Message si le dataset spécifié n'est pas trouvé
-						document.getElementById('lastUpdateDate').textContent = "Dataset spécifié non trouvé";
-					}
-				})
-				.catch(error => {
-					// Gestion des erreurs et affichage d'un message d'erreur
-					console.error('Erreur lors de la récupération de la date de mise à jour', error);
-					document.getElementById('lastUpdateDate').textContent = "Erreur lors de la récupération de la date de mise à jour";
-				});
-		});
-
 		// Écouteur d'événement sur le formulaire pour la soumission
 		document.getElementById('mapForm').addEventListener('submit', function(e) {
 			e.preventDefault();
@@ -719,5 +683,41 @@
 			}
 		}
 	</script>
+
+		// Ajout d'un écouteur d'événement sur le bouton pour afficher la date de dernière mise à jour des données
+		document.getElementById('updateDateButton').addEventListener('click', function() {
+			// Envoi d'une requête à l'API pour récupérer les données
+			fetch('https://data.anfr.fr/d4c/api/datasets/2.0/search/facet.field=%5B%22organization%22,%22tags%22,%22themes%22,%22features%22%5D&rows=12&start=0')
+				.then(response => response.json()) // Conversion de la réponse en JSON
+				.then(data => {
+					// Recherche du dataset spécifique dans les résultats
+					const dataset = data.result.results.find(d => d.id === "dd11fac6-4531-4a27-9c8c-a3a9e4ec2107");
+
+					// Vérification si le dataset et la section 'resources' existent
+					if (dataset && dataset.resources) {
+						// Recherche de la ressource spécifique par son ID
+						const resource = dataset.resources.find(r => r.id === "88ef0887-6b0f-4d3f-8545-6d64c8f597da");
+						if (resource && resource.last_modified) {
+							// Conversion de la date ISO en objet Date
+							const date = new Date(resource.last_modified);
+							// Formatage de la date en format JJ/MM/AAAA HH:MM:SS
+							const formattedDate = date.toLocaleDateString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit' }) + " " + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+							// Affichage de la date formatée
+							document.getElementById('lastUpdateDate').textContent = "Dernière mise à jour : " + formattedDate;
+						} else {
+							// Message si la date de dernière mise à jour n'est pas trouvée
+							document.getElementById('lastUpdateDate').textContent = "Date de dernière mise à jour non trouvée dans les ressources";
+						}
+					} else {
+						// Message si le dataset spécifié n'est pas trouvé
+						document.getElementById('lastUpdateDate').textContent = "Dataset spécifié non trouvé";
+					}
+				})
+				.catch(error => {
+					// Gestion des erreurs et affichage d'un message d'erreur
+					console.error('Erreur lors de la récupération de la date de mise à jour', error);
+					document.getElementById('lastUpdateDate').textContent = "Erreur lors de la récupération de la date de mise à jour";
+				});
+		});
 </body>
 </html>
