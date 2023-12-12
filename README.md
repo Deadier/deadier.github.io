@@ -1,7 +1,7 @@
 
 # Cartographie des antennes mobiles
 
-Ce projet est une application web pour visualiser les emplacements des antennes mobiles en France. L'utilisateur peut entrer des coordonnées géographiques, un rayon de recherche et sélectionner une région (Métropole ou Antilles-Guyane) pour afficher des informations sur les antennes mobiles dans la zone spécifiée.
+Ce projet est une application web pour visualiser le nombre d'antennes de téléphonie mobile et le nombre de pylône de support d'antennes dans une zone spécifiée en France. L'utilisateur peut entrer des coordonnées géographiques, un rayon de recherche et sélectionner une région (Métropole ou Antilles-Guyane) pour afficher des informations sur les antennes mobiles dans la zone spécifiée.
 
 ## Fonctionnalités
 
