@@ -221,12 +221,12 @@
 
     <!-- Section d'information masquée -->
 	<div id="infoSection">
-		<p>Cette page permet de compter et visualiser les antennes de téléphonie mobile et les pylônes dans une zone spécifique par opérateur. Vous pouvez entrer des coordonnées géographiques, un rayon de recherche, et choisir entre la Métropole et les Antilles-Guyane. Appuyez sur "Afficher les cartes" pour voir les résultats.</p>
+		<p>Cette page permet de compter et visualiser les antennes de téléphonie mobile et les pylônes dans une zone spécifique par opérateur. Vous pouvez entrer des coordonnées géographiques, un rayon de recherche, et choisir entre la Métropole et les Antilles-Guyane. Appuyez sur "Afficher les antennes" pour voir les résultats.</p>
 		<p>Attention ! Le nombre d'antennes renvoyées par l'API est limité à 1000 antennes par génération par opérateur.</p>
 		<p>Données originales téléchargées sur le jeu de données <a href="https://data.anfr.fr/visualisation/information/?id=observatoire_2g_3g_4g" target="_blank">Données sur les réseaux mobiles</a> de l’ANFR</p>
 		
 		<!-- Bouton pour récupérer la date de dernière mise à jour du jeu de données de l'ANFR -->
-		<button id="updateDateButton">Voir la date de dernière mise à jour du jeu de données de l'ANFR</button>
+		<button id="updateDateButton">Afficher la date de dernière mise à jour du jeu de données de l'ANFR</button>
 		<p id="lastUpdateDate"></p>
 	</div>
 
@@ -254,7 +254,7 @@
 		</div>
 		<br>
 
-        <input type="submit" value="Afficher les cartes">
+        <input type="submit" value="Afficher les antenne">
     </form>
 
 	<!-- Tableau de présentation de résultats -->
@@ -463,13 +463,13 @@
 			cellPylons.textContent = `${pylonsCount} pylônes`;
 			cellPylons.setAttribute('data-label', 'Nombre de pylônes');
 
-			// Colonne pour le bouton Détails
+			// Colonne pour le bouton Carte
 			const detailButton = document.createElement('button');
-			detailButton.textContent = 'Détails';
+			detailButton.textContent = 'Carte';
 			detailButton.onclick = () => openMapInNewTab(operator, latitude, longitude, radius, region);
 			const cellButton = newRow.insertCell();
 			cellButton.appendChild(detailButton);
-			cellButton.setAttribute('data-label', 'Détails');
+			cellButton.setAttribute('data-label', 'Carte');
 
 			/*
 			// Création d'un conteneur pour l'iframe (plus utilisé pour l'instant)
