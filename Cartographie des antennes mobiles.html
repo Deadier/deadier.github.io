@@ -672,20 +672,23 @@
             "Erreur lors de la récupération des données de l'ANFR",
             error
           )
-          document.getElementById("totalPylons").textContent =
-            handleError(error)
+          document.getElementById("totalPylons").innerHTML = handleError(error)
         }
       }
 
       function handleError(error) {
+        let errorMessage = ""
         if (error.message === "Network response was not ok") {
-          return "Erreur lors de la récupération des données. Veuillez vérifier votre connexion Internet et réessayer."
+          errorMessage =
+            "Erreur lors de la récupération des données. Veuillez vérifier votre connexion Internet et réessayer."
         } else if (error.name === "AbortError") {
-          return "La requête a expiré. L'API de l'ANFR met trop de temps à répondre. Veuillez réessayer plus tard."
+          errorMessage =
+            "La requête a expiré. L'API de l'ANFR met trop de temps à répondre. Veuillez réessayer plus tard."
         } else {
-          // Conseil général pour les erreurs CORS sans pouvoir détecter explicitement
-          return "Une erreur est survenue. Veuillez vérifier votre accès Internet et vérifier l'installation et l'activation de l'extension CORS Unblock."
+          // Mise à jour pour inclure des liens HTML
+          errorMessage = `Une erreur est survenue. Veuillez vérifier votre accès Internet et vérifier l'installation et l'activation de l'extension <a href="https://chromewebstore.google.com/detail/cors-unblock/lfhmikememgdcahcdlaciloancbhjino" target="_blank">CORS Unblock (Chrome)</a>, <a href="https://addons.mozilla.org/fr/firefox/addon/cors-unblock/" target="_blank">CORS Unblock (Firefox)</a>, ou <a href="https://addons.mozilla.org/fr/firefox/addon/access-control-allow-origin/" target="_blank">Allow CORS: Access-Control-Allow-Origin (Firefox Mobile)</a>.`
         }
+        return errorMessage
       }
 
       // Fonction pour obtenir l'URL du logo en fonction de l'opérateur
