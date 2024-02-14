@@ -308,7 +308,7 @@
     <!-- Section pour afficher le nombre total de pylônes -->
     <div id="totalPylonsSection" style="text-align: center; margin-top: 20px">
       <h2>Nombre total de pylônes dans la zone</h2>
-      <p id="totalPylons">Patientez, chargement cours ...</p>
+      <p id="totalPylons">Patientez, chargement en cours ...</p>
     </div>
 
     <!-- Script JavaScript pour la gestion des iframes et des messages de chargement (plus utilsé pour l'instant) -->
@@ -432,6 +432,10 @@
           ).value
           let operators = determineOperators(region)
 
+          // Réinitialisation de la section des pylônes avec le message de chargement
+          document.getElementById("totalPylons").textContent =
+            "Patientez, chargement en cours ..."
+          
           // Réinitialisation du tableau des antennes
           document
             .getElementById("antennasTable")
