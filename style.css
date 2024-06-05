@@ -1,0 +1,197 @@
+/* Styles généraux */
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f4f4f4;
+  color: #333;
+  margin: 0;
+  padding: 0;
+}
+
+/* Styles pour le formulaire */
+#mapForm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: auto;
+  width: 90%;
+  max-width: 500px;
+}
+
+/* Styles pour les champs de saisie et les boutons */
+input[type="text"], input[type="number"], input[type="radio"], input[type="submit"], input[type="button"] {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin: 4px 0;
+  width: calc(100% - 24px);
+}
+
+/* Styles pour les boutons */
+input[type="submit"], input[type="button"] {
+  background-color: #4CAF50;
+  color: white;
+  cursor: pointer;
+}
+
+input[type="submit"]:hover, input[type="button"]:hover {
+  background-color: #45a049;
+}
+
+/* Style pour le bouton d'information */
+#infoButton {
+  background-color: #007bff;
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+#infoButton:hover {
+  background-color: #0056b3;
+}
+
+/* Style pour la section d'information */
+#infoSection {
+  margin-top: 10px;
+  border: 1px solid #ddd;
+  padding: 15px;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+  display: none; /* Masqué initialement */
+}
+
+/* Styles pour les noms des opérateurs et les messages de chargement */
+.operatorName, .loadingMessage {
+  margin-top: 20px;
+  text-align: center;
+}
+
+/* Styles pour l'indication de la zone de recherche */
+.searchZoneLabel {
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-top: 15px;
+  text-align: center;
+}
+
+/* Style pour le sélecteur de région */
+.region-selector {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+/* Style pour les labels des boutons radio */
+.region-label {
+  border: 2px solid #007bff;
+  padding: 10px 20px;
+  margin: 0 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+/* Masquer les boutons radio eux-mêmes */
+input[type="radio"] {
+  display: none;
+}
+
+/* Style pour le label lorsque son bouton radio associé est sélectionné */
+input[type="radio"]:checked + .region-label {
+  background-color: #007bff;
+  color: white;
+}
+
+/* Style pour les boutons dans le tableau des antennes */
+#antennasTable button {
+  background-color: #007bff; /* Bleu */
+  color: white; /* Écriture blanche */
+  border: none;
+  padding: 10px 15px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+  border-radius: 5px; /* Angles arrondis */
+}
+
+/* Style pour la table des antennes */
+#antennasTable {
+  width: 100%;
+  border-collapse: collapse;
+  display: none; /* Masqué initialement */
+}
+
+/* Style pour le logo opérateur */
+.operator-logo {
+  height: 30px; /* Ajustez cette valeur selon vos besoins */
+  width: auto;
+  vertical-align: middle;
+  margin-right: 5px; /* Espace entre le logo et le nom de l'opérateur */
+}
+
+/* Style pour les en-têtes et les cellules du tableau */
+#antennasTable th, #antennasTable td {
+  border: 1px solid #ddd;
+  padding: 8px 0;
+  text-align: center;
+}
+
+/* Styles pour les petits écrans (moins de 600px de large) */
+@media screen and (max-width: 600px) {
+  #antennasTable thead {
+    display: none;
+  }
+
+  /* Styles pour le tableau et ses éléments en affichage bloc */
+  #antennasTable, #antennasTable tbody, #antennasTable tr, #antennasTable td {
+    display: block;
+  }
+
+  /* Marge inférieure pour chaque ligne du tableau */
+  #antennasTable tr {
+    margin-bottom: 15px;
+  }
+
+  /* Alignement du texte et positionnement des cellules */
+  #antennasTable td {
+    position: relative;
+  }
+
+  /* Styles pour le pseudo-élément ::before dans les cellules du tableau */
+  #antennasTable td::before {
+    content: attr(data-label);
+    font-weight: bold;
+    display: block;
+  }
+
+  /* Styles pour le pseudo-élément avant chaque cellule */
+  #antennasTable td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0;
+    width: 50%;
+    padding-left: 15px;
+    font-weight: bold;
+    text-align: left;
+  }
+}
+
+/* Media queries pour les écrans plus petits */
+@media (max-width: 767px) {
+  /* Agrandir les champs de saisie, les boutons et le texte */
+  input[type="text"], input[type="number"], input[type="radio"], input[type="submit"], input[type="button"], .operatorName {
+    font-size: 1.2em;
+    padding: 12px 15px;
+  }
+
+  /* Ajuster la hauteur des iframes pour les petits écrans (plus utilisé pour l'instant */
+  #mapContainer iframe {
+    height: 300px;
+  }
+}
