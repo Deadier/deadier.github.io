@@ -287,6 +287,8 @@
     <p id="totalPylons">Patientez, chargement en cours ...</p>
   </div>
 
+  <script src="js/utils.js"></script>
+
   <script>
     // Fonctions de validation pour la latitude, la longitude et le rayon
     function isValidLatitude(lat) {
@@ -339,21 +341,7 @@
       return `https://data.anfr.fr/visualisation/frame/map/?id=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&geofilter.distance=${latitude},${longitude},${radius}&location=${zoomLevel},${latitude},${longitude}&datasetcard=true&scrollWheelZoom=true`;
     }
 
-    // Fonction pour calculer le niveau de zoom basé sur le rayon
-    function calculateZoomLevel(radius) {
-      // Logique de calcul du niveau de zoom basée sur le rayon
-      radius = parseFloat(radius);
-      if (radius <= 35) return 20;
-      else if (radius <= 70) return 19;
-      else if (radius <= 140) return 18;
-      else if (radius <= 270) return 17;
-      else if (radius <= 550) return 16;
-      else if (radius <= 1100) return 15;
-      else if (radius <= 2200) return 14;
-      else if (radius <= 4400) return 13;
-      else if (radius <= 8800) return 12;
-      else return 11; // Pour les rayons plus grands
-    }
+
 
     // Fonction pour afficher le tableau des résultats et le total des pylônes uniques de la zone qui sont initialement masqués
     function showResults() {
