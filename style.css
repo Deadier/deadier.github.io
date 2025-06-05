@@ -190,7 +190,7 @@ input[type="radio"]:checked + .region-label {
     padding: 12px 15px;
   }
 
-  /* Ajuster la hauteur des iframes pour les petits écrans (plus utilisé pour l'instant */
+  /* Ajuster la hauteur des iframes pour les petits écrans (plus utilisé pour l'instant) */
   #mapContainer iframe {
     height: 300px;
   }
