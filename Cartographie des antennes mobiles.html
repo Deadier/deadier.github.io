@@ -485,7 +485,9 @@
     // Ajout d'un écouteur d'événement sur le bouton pour afficher la date de dernière mise à jour des données
     document.getElementById("updateDateButton").addEventListener("click", function () {
       // Envoi d'une requête à l'API pour récupérer les données
-      fetch("https://data.anfr.fr/d4c/api/datasets/2.0/search/facet.field=%5B%22organization%22,%22tags%22,%22themes%22,%22features%22%5D&rows=12&start=0")
+      fetch(
+        "https://data.anfr.fr/d4c/api/datasets/2.0/search/?facet.field=%5B%22organization%22,%22tags%22,%22themes%22,%22features%22%5D&rows=12&start=0"
+      )
         .then((response) => response.json()) // Conversion de la réponse en JSON
         .then((data) => {
           // Recherche du dataset spécifique dans les résultats
@@ -638,7 +640,7 @@
         // Formater correctement le nom de l'opérateur pour une URL
         operator = operator.replace(" ", "%20");
 
-        const baseUrl = "https://data.anfr.fr/d4c/api/records/1.0/search/";
+        const baseUrl = "https://data.anfr.fr/d4c/api/records/1.0/search/?";
         const query = `facet=sup_id&rows=1000&dataset=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&lang=fr&geofilter.distance=${latitude},${longitude},${radius}`;
         const response = await fetch(baseUrl + query);
         const data = await response.json();
@@ -659,7 +661,7 @@
 
     // Fonction pour calculer et afficher le nombre total de pylônes uniques pour tous les opérateurs
     async function calculateAndDisplayTotalPylons(latitude, longitude, radius) {
-      const baseUrl = "https://data.anfr.fr/d4c/api/records/1.0/search/";
+      const baseUrl = "https://data.anfr.fr/d4c/api/records/1.0/search/?";
       const query = `facet=sup_id&rows=1000&dataset=observatoire_2g_3g_4g&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&lang=fr&geofilter.distance=${latitude},${longitude},${radius}`;
 
       try {
@@ -678,7 +680,7 @@
 
     // Fonction pour obtenir le nombre d'antennes par génération
     function getAntennasCountByGeneration(operator, latitude, longitude, radius, generation, callback) {
-      const url = `https://data.anfr.fr/d4c/api/records/1.0/search/rows=1000&dataset=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.generation=${generation}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&lang=fr&geofilter.distance=${latitude},${longitude},${radius}`;
+      const url = `https://data.anfr.fr/d4c/api/records/1.0/search/?rows=1000&dataset=observatoire_2g_3g_4g&refine.adm_lb_nom=${operator}&refine.generation=${generation}&refine.statut=En%20service&refine.statut=Techniquement%20op%C3%A9rationnel&lang=fr&geofilter.distance=${latitude},${longitude},${radius}`;
 
       fetch(url)
         .then((response) => response.json())
