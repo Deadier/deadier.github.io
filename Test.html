@@ -1,272 +1,402 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>ANFR – Compteur pylônes & antennes (Explore v2.1)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Observatoire ANFR – Comptage optimisé (facettes)</title>
   <style>
-    :root { --pad:.5rem; --bd:#ddd; --muted:#666; --ok:#116611; --warn:#995500; --err:#992222; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; line-height:1.45; margin: 2rem; }
-    h1 { margin-top:0 }
-    label { display:block; margin-top:.4rem; }
-    input, select, button { font-size:1rem; padding:.35rem .5rem; }
-    .row { display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end; margin:.5rem 0 1rem; }
-    table { border-collapse:collapse; width:100%; max-width:1100px; margin-top:1rem; }
-    th, td { border:1px solid var(--bd); padding:.4rem .5rem; text-align:right; }
-    th:first-child, td:first-child { text-align:left; }
-    tfoot td { font-weight:700; }
-    .muted { color:var(--muted); font-size:.92rem; }
-    .ok { color:var(--ok); } .warn { color:var(--warn); } .error { color:var(--err); }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    .small { font-size:.9rem; }
+    :root{
+      --bg:#0f172a; /* slate-900 */
+      --panel:#111827; /* gray-900 */
+      --muted:#94a3b8; /* slate-400 */
+      --fg:#e5e7eb; /* gray-200 */
+      --accent:#22c55e; /* green-500 */
+      --danger:#ef4444; /* red-500 */
+      --card:#111827;
+      --border:#1f2937; /* gray-800 */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
+      color:var(--fg); background:linear-gradient(180deg, var(--bg), #030712 60%);
+    }
+    header{
+      padding:24px 16px 8px; max-width:1200px; margin:0 auto;
+    }
+    h1{margin:0 0 6px; font-size:22px; font-weight:700}
+    p.lead{margin:0; color:var(--muted)}
+    main{max-width:1200px; margin:16px auto; padding:0 16px}
+    .panel{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px; box-shadow:0 10px 20px rgba(0,0,0,.35)}
+    .grid{display:grid; grid-template-columns:1.2fr .8fr; gap:16px}
+    @media (max-width:1000px){ .grid{grid-template-columns:1fr} }
+
+    label{display:block; font-weight:600; margin:8px 0 4px}
+    input[type="number"], input[type="text"], select{
+      width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:#0b1220; color:var(--fg);
+    }
+    .row{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+    .row-2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+    @media (max-width:760px){ .row{grid-template-columns:1fr} .row-2{grid-template-columns:1fr}}
+
+    .btns{display:flex; flex-wrap:wrap; gap:10px; margin-top:12px}
+    button, a.btn{
+      appearance:none; border:1px solid var(--border); background:#0b1220; color:var(--fg);
+      padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600;
+    }
+    button.primary{background:var(--accent); color:#04130b; border-color:#0f5132}
+    button.ghost{background:transparent}
+    button:disabled{opacity:.6; cursor:not-allowed}
+
+    .status{margin-top:10px; min-height:24px; color:var(--muted)}
+    .error{color:var(--danger)}
+
+    table{width:100%; border-collapse:collapse; overflow:auto; border-radius:12px; border:1px solid var(--border)}
+    th,td{padding:10px 12px; border-bottom:1px solid var(--border); text-align:right}
+    th:first-child, td:first-child{text-align:left}
+    thead th{position:sticky; top:0; background:#0d1322}
+    tfoot td{font-weight:700}
+
+    .badge{display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--border); color:var(--muted); font-size:12px}
+    .kpi{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:12px 0}
+    .kpi .card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px}
+    .kpi .card h3{margin:0; font-size:13px; color:var(--muted); font-weight:600}
+    .kpi .card p{margin:6px 0 0; font-size:20px; font-weight:800}
+
+    iframe{width:100%; height:540px; border:1px solid var(--border); border-radius:12px}
+    .muted{color:var(--muted)}
+    .small{font-size:12px}
+    .spinner{display:inline-block; width:16px; height:16px; border:2px solid #2e374b; border-top-color:var(--accent); border-radius:50%; animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    code{background:#0b1220; border:1px solid var(--border); border-radius:8px; padding:2px 6px}
   </style>
 </head>
 <body>
-  <h1>Compter pylônes et antennes par opérateur (ANFR / Explore v2.1)</h1>
+  <header>
+    <h1>ANFR – Comptage optimisé des antennes et pylônes (facettes)</h1>
+    <p class="lead">Basé sur <span class="badge">/d4c/api/records/1.0/search/</span> – jeu de données <code>observatoire_2g_3g_4g</code>.</p>
+  </header>
 
-  <div class="row">
-    <label>Latitude<br><input id="lat" type="number" step="any" value="48.8566"></label>
-    <label>Longitude<br><input id="lon" type="number" step="any" value="2.3522"></label>
-    <label>Rayon (mètres)<br><input id="radius" type="number" step="1" value="2500"></label>
-    <label>Région<br>
-      <select id="region">
-        <option value="metropole" selected>métropole</option>
-        <option value="antilles">antilles-guyane</option>
-      </select>
-    </label>
-    <button id="run">Calculer</button>
-    <button id="openMap">Ouvrir la carte ANFR</button>
-  </div>
+  <main class="grid">
+    <section class="panel">
+      <h2 style="margin-top:0">Paramètres</h2>
+      <div class="row">
+        <div>
+          <label for="lat">latitude</label>
+          <input id="lat" type="number" step="0.000001" placeholder="48.8566" value="45.770342" />
+        </div>
+        <div>
+          <label for="lon">longitude</label>
+          <input id="lon" type="number" step="0.000001" placeholder="2.3522" value="4.774298" />
+        </div>
+        <div>
+          <label for="radius">rayon (m)</label>
+          <input id="radius" type="number" step="10" placeholder="2500" value="2500" />
+        </div>
+      </div>
+      <div class="row-2" style="margin-top:8px">
+        <div>
+          <label for="method">méthode de comptage des pylônes</label>
+          <select id="method">
+            <option value="facets" selected>facettes (rapide)</option>
+            <option value="dedup">dédoublonnage sup_id (plus fiable si zone immense)</option>
+          </select>
+          <p class="small muted" style="margin:6px 0 0">Les totaux « antennes » sont toujours calculés par facette <code>generation</code>. Les « pylônes » utilisent par défaut la facette <code>sup_id</code>.</p>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <div class="btns">
+            <button id="run" class="primary">Analyser</button>
+            <button id="showMap">Afficher la carte</button>
+            <button id="meta" class="ghost">Métadonnées du jeu</button>
+          </div>
+        </div>
+      </div>
+      <div class="status" id="status"></div>
+    </section>
 
-  <div id="meta" class="muted">Chargement du schéma du jeu de données…</div>
+    <section class="panel">
+      <h2 style="margin-top:0">Carte</h2>
+      <iframe id="map" title="Carte ANFR"></iframe>
+      <p class="small muted">La carte est un <em>iframe</em> officiel ANFR filtré sur le disque (latitude, longitude, rayon) et les statuts « En service » et « Techniquement opérationnel ».</p>
+    </section>
 
-  <table id="tbl">
-    <thead>
-      <tr>
-        <th>opérateur</th>
-        <th>pylônes (supports) uniques</th>
-        <th>2G</th><th>3G</th><th>4G</th><th>5G</th>
-        <th>total antennes</th>
-      </tr>
-    </thead>
-    <tbody id="body"></tbody>
-    <tfoot>
-      <tr>
-        <td>tous opérateurs</td>
-        <td id="sumPylons">–</td>
-        <td id="sum2g">–</td><td id="sum3g">–</td><td id="sum4g">–</td><td id="sum5g">–</td>
-        <td id="sumAllAnt">–</td>
-      </tr>
-    </tfoot>
-  </table>
+    <section class="panel" style="grid-column:1/-1">
+      <h2 style="margin-top:0">Résultats</h2>
+      <div class="kpi">
+        <div class="card"><h3>opérateurs détectés</h3><p id="kpiOps">—</p></div>
+        <div class="card"><h3>pylônes (tous opérateurs)</h3><p id="kpiPylAll">—</p></div>
+        <div class="card"><h3>antennes (tous opérateurs)</h3><p id="kpiAntAll">—</p></div>
+      </div>
+      <div style="overflow:auto">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>opérateur</th>
+              <th>2G</th>
+              <th>3G</th>
+              <th>4G</th>
+              <th>5G</th>
+              <th>antennes</th>
+              <th>pylônes</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr>
+              <td>total</td>
+              <td id="t2g">0</td>
+              <td id="t3g">0</td>
+              <td id="t4g">0</td>
+              <td id="t5g">0</td>
+              <td id="tant">0</td>
+              <td id="tpyl">0</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
 
-  <p class="muted small">
-    Source : jeu <span class="mono">observatoire_2g_3g_4g</span> – ANFR. Statuts pris en compte : <em>En service</em> (2G/3G/4G) et
-    <em>Techniquement opérationnel</em> (5G). Filtre géographique : cercle via <span class="mono">within_distance()</span>.
-  </p>
+    <section class="panel" style="grid-column:1/-1">
+      <h2 style="margin-top:0">Journal</h2>
+      <pre id="log" style="white-space:pre-wrap; background:#0b1220; border:1px solid var(--border); padding:12px; border-radius:12px; max-height:260px; overflow:auto"></pre>
+    </section>
+  </main>
 
-<script>
-(async () => {
-  // --- constantes de domaine/dataset (Explore v2.1)
-  const DATASET = "observatoire_2g_3g_4g";
-  const BASE   = `https://data.anfr.fr/api/explore/v2.1/catalog/datasets/${DATASET}/records`;
-  const INFO   = `https://data.anfr.fr/api/explore/v2.1/catalog/datasets/${DATASET}`;
+  <script>
+  (function(){
+    const API_BASE = "https://data.anfr.fr/d4c/api/records/1.0/search/";
+    const DATASET = "observatoire_2g_3g_4g";
+    const STATUS_FILTERS = ["En service", "Techniquement opérationnel"]; // 2G/3G/4G + 5G
 
-  // opérateurs par zone (libellés tels qu’ils apparaissent dans les facettes ANFR)
-  const OPS_METRO = ["ORANGE","BOUYGUES TELECOM","SFR","FREE MOBILE"];
-  const OPS_ANTIL = ["ORANGE","FREE CARAIBES","DIGICEL","OUTREMER TELECOM"];
+    const DISPLAY_LABEL = {
+      "ORANGE":"Orange",
+      "SFR":"SFR",
+      "BOUYGUES TELECOM":"Bouygues Telecom",
+      "FREE MOBILE":"Free Mobile",
+      "OUTREMER TELECOM":"SFR Caraïbes (OUTREMER TELECOM)",
+      "FREE CARAIBES":"Free Caraïbes",
+      "DIGICEL":"Digicel"
+    };
 
-  // champs (détectés dynamiquement, avec replis prudents)
-  let GEO_FIELD = "geo_point_2d";
-  let FIELD_SUPPORT = "sup_id";          // identifiant de support (pylône)
-  let FIELD_OPERATEUR = "adm_lb_nom";    // libellé opérateur
-  let FIELD_GENERATION = "generation";   // 2G / 3G / 4G / 5G
-  let FIELD_STATUT = "statut";           // En service / Techniquement opérationnel
-  let lastUpdated = null;
+    const $ = (id)=>document.getElementById(id);
+    const log = (msg)=>{$("log").textContent += msg+"\n"};
 
-  // utilitaire fetch JSON
-  async function fetchJSON(url) {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(`HTTP ${r.status} sur ${url}`);
-    return r.json();
-  }
-
-  // détecte automatiquement les noms de champs (insensible à la casse) + champ géo + date MAJ
-  async function detectSchema() {
-    try {
-      const j = await fetchJSON(INFO);
-      const fields = j?.dataset?.schema?.fields || [];
-      const metas = j?.dataset?.metas || {};
-      lastUpdated = metas?.data_processed || metas?.modified || null;
-
-      const byName = (nameList) => {
-        // renvoie le premier champ dont le nom (lowercase) matche l’un des candidats
-        const cand = nameList.map(s => s.toLowerCase());
-        const f = fields.find(f => cand.includes(String(f.name||"").toLowerCase()));
-        return f?.name || null;
-      };
-
-      GEO_FIELD       = byName(["geo_point_2d","geo_shape","geopoint","geom"]) || GEO_FIELD;
-      FIELD_SUPPORT   = byName(["sup_id","SUP_ID","support_id"]) || FIELD_SUPPORT;
-      FIELD_OPERATEUR = byName(["adm_lb_nom","operateur","opérateur","operator"]) || FIELD_OPERATEUR;
-      FIELD_GENERATION= byName(["generation","génération"]) || FIELD_GENERATION;
-      FIELD_STATUT    = byName(["statut","status"]) || FIELD_STATUT;
-
-      document.getElementById("meta").innerHTML =
-        `Champ géographique : <span class="mono ok">${GEO_FIELD}</span> · `+
-        `champs → opérateur=<span class="mono">${FIELD_OPERATEUR}</span>, `+
-        `génération=<span class="mono">${FIELD_GENERATION}</span>, `+
-        `statut=<span class="mono">${FIELD_STATUT}</span>, `+
-        `support=<span class="mono">${FIELD_SUPPORT}</span>` +
-        (lastUpdated ? ` — dernière mise à jour : <span class="mono">${lastUpdated}</span>` : "");
-    } catch (e) {
-      document.getElementById("meta").innerHTML =
-        `Impossible de lire le schéma du dataset (replis utilisés).`;
+    function setStatus(text, isError=false){
+      const el=$("status");
+      el.innerHTML = isError ? `<span class="error">${text}</span>` : text;
     }
-  }
 
-  // construction de l’expression WHERE
-  function whereExpr({lat,lon,radius, operateur=null}) {
-    const wkt = `POINT(${lon} ${lat})`;
-    const parts = [
-      `within_distance(${GEO_FIELD}, GEOM'${wkt}', ${radius} m)`,
-      `${FIELD_STATUT} IN ("En service","Techniquement opérationnel")`
-    ];
-    if (operateur) {
-      // valeur protégée (guillemet + échappement)
-      const v = operateur.replaceAll('"','\\"');
-      parts.push(`${FIELD_OPERATEUR} = "${v}"`);
+    function validCoords(lat, lon){
+      return isFinite(lat) && isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
     }
-    return parts.join(" AND ");
-  }
 
-  // utilitaire URL Explore v2.1
-  function buildURL(params) {
-    const p = new URLSearchParams();
-    for (const [k,v] of Object.entries(params)) {
-      if (v == null) continue;
-      if (Array.isArray(v)) v.forEach(x => p.append(k, x));
-      else p.set(k, v);
+    function zoomFromRadius(r){
+      if (r <= 300) return 17;
+      if (r <= 600) return 16;
+      if (r <= 1000) return 15;
+      if (r <= 2500) return 14;
+      if (r <= 5000) return 13;
+      if (r <= 10000) return 12;
+      if (r <= 25000) return 11;
+      if (r <= 50000) return 10;
+      if (r <= 100000) return 9;
+      return 8;
     }
-    return `${BASE}?${p.toString()}`;
-  }
 
-  // antennes par génération pour un opérateur (agrégation côté serveur)
-  async function countsByGeneration(op, lat, lon, radius) {
-    const url = buildURL({
-      select: `${FIELD_GENERATION}, count(1) as n`,
-      where: whereExpr({lat, lon, radius, operateur: op}),
-      "group_by": FIELD_GENERATION,
-      limit: "10", // group_by → limite max 20000 d’après la doc
-      lang: "fr"
+    function mapUrl(lat, lon, r){
+      const zoom = zoomFromRadius(r);
+      const usp = new URLSearchParams();
+      usp.set("id", DATASET);
+      // filtres permanents
+      for(const s of STATUS_FILTERS){ usp.append("refine.statut", s); }
+      usp.set("geofilter.distance", `${lat},${lon},${r}`);
+      usp.set("datasetcard", "true");
+      usp.set("scrollWheelZoom", "true");
+      usp.set("location", `${zoom},${lat},${lon}`);
+      return `https://data.anfr.fr/visualisation/frame/map/?${usp.toString()}`;
+    }
+
+    function buildParams(base={}){
+      const usp = new URLSearchParams({ dataset: DATASET, rows: String(base.rows ?? 0) });
+      if(base.facets){ for(const f of base.facets) usp.append("facet", f); }
+      if(base.adm){ usp.append("refine.adm_lb_nom", base.adm); }
+      if(base.generation){ usp.append("refine.generation", base.generation); }
+      if(base.distance){ usp.append("geofilter.distance", base.distance); }
+      for(const s of STATUS_FILTERS){ usp.append("refine.statut", s); }
+      if(base.fields){ usp.set("fields", base.fields); }
+      if(base.records_format){ usp.set("records_format", base.records_format); }
+      if(base.start != null){ usp.set("start", String(base.start)); }
+      if(base.rows != null){ usp.set("rows", String(base.rows)); }
+      return usp;
+    }
+
+    async function fetchJson(url){
+      const res = await fetch(url, { headers:{"Accept":"application/json"}});
+      if(!res.ok) throw new Error(`HTTP ${res.status} – ${res.statusText}`);
+      return res.json();
+    }
+
+    function getFacet(items, name){
+      const g = (items || []).find(x => x.name === name);
+      return g ? g.facets || [] : [];
+    }
+
+    function facetsToMap(facets){
+      const m = Object.create(null);
+      for(const it of facets){ m[it.name] = it.count; }
+      return m;
+    }
+
+    async function getOperatorsInArea(lat, lon, r){
+      const p = buildParams({ facets:["adm_lb_nom"], rows:0, distance:`${lat},${lon},${r}` });
+      const url = `${API_BASE}?${p.toString()}`;
+      log("→ opérateurs présents : "+url);
+      const data = await fetchJson(url);
+      const ops = getFacet(data.facet_groups, "adm_lb_nom").map(f=>({ name:f.name, count:f.count }))
+                       .sort((a,b)=>b.count-a.count);
+      return ops;
+    }
+
+    async function getStatsForOperator(lat, lon, r, operator, method){
+      // 1 appel facettes (generation + sup_id)
+      const p = buildParams({ facets:["generation","sup_id"], rows:0, distance:`${lat},${lon},${r}`, adm:operator });
+      const url = `${API_BASE}?${p.toString()}`;
+      log("→ stats opérateur (facettes) : "+url);
+      const data = await fetchJson(url);
+
+      const genFacet = facetsToMap(getFacet(data.facet_groups, "generation"));
+      const antennes = (genFacet["2G"]||0)+(genFacet["3G"]||0)+(genFacet["4G"]||0)+(genFacet["5G"]||0);
+      let pylones = getFacet(data.facet_groups, "sup_id").length; // nombre de valeurs distinctes
+
+      if(method === "dedup"){
+        pylones = await countSupportsByDedup(lat, lon, r, operator);
+      }
+
+      return { operator, gen:genFacet, antennes, pylones };
+    }
+
+    async function getAllPylones(lat, lon, r, method){
+      if(method === "dedup"){ return countSupportsByDedup(lat, lon, r, null); }
+      const p = buildParams({ facets:["sup_id"], rows:0, distance:`${lat},${lon},${r}` });
+      const url = `${API_BASE}?${p.toString()}`;
+      log("→ pylônes (tous opérateurs, facette sup_id) : "+url);
+      const data = await fetchJson(url);
+      return getFacet(data.facet_groups, "sup_id").length;
+    }
+
+    async function countSupportsByDedup(lat, lon, r, operator){
+      // Fallback : itère jusqu'à 10 000 (limite API recherche) en pages de 1000 sur le seul champ sup_id
+      const rows = 1000; let start = 0; const supports = new Set();
+      while(start < 10000){
+        const p = buildParams({ distance:`${lat},${lon},${r}`, rows, start, fields:"sup_id", records_format:"lists" });
+        if(operator){ p.append("refine.adm_lb_nom", operator); }
+        const url = `${API_BASE}?${p.toString()}`;
+        log("→ page supports (dédoublonnage) : "+url);
+        const data = await fetchJson(url);
+        const rowsList = Array.isArray(data.records) ? data.records : [];
+        if(rowsList.length === 0) break;
+        for(const list of rowsList){ const sid = list && list[0]; if(sid!=null) supports.add(String(sid)); }
+        if(rowsList.length < rows) break;
+        start += rows;
+      }
+      return supports.size;
+    }
+
+    function fmt(n){ return n.toLocaleString("fr-FR"); }
+
+    function displayResults(opsStats, pylAll){
+      const tbody = $("tbl").querySelector("tbody");
+      tbody.innerHTML = "";
+      let t2=0,t3=0,t4=0,t5=0, tant=0, tpyl=0;
+      for(const s of opsStats){
+        const g2=s.gen["2G"]||0, g3=s.gen["3G"]||0, g4=s.gen["4G"]||0, g5=s.gen["5G"]||0;
+        const tr = document.createElement("tr");
+        const label = DISPLAY_LABEL[s.operator] || s.operator;
+        tr.innerHTML = `<td>${label}</td>
+          <td>${fmt(g2)}</td><td>${fmt(g3)}</td><td>${fmt(g4)}</td><td>${fmt(g5)}</td>
+          <td>${fmt(s.antennes)}</td><td>${fmt(s.pylones)}</td>`;
+        tbody.appendChild(tr);
+        t2+=g2; t3+=g3; t4+=g4; t5+=g5; tant+=s.antennes; tpyl+=s.pylones;
+      }
+      $("t2g").textContent = fmt(t2);
+      $("t3g").textContent = fmt(t3);
+      $("t4g").textContent = fmt(t4);
+      $("t5g").textContent = fmt(t5);
+      $("tant").textContent = fmt(tant);
+      $("tpyl").textContent = fmt(tpyl);
+
+      $("kpiOps").textContent = fmt(opsStats.length);
+      $("kpiPylAll").textContent = pylAll!=null? fmt(pylAll) : "—";
+      $("kpiAntAll").textContent = fmt(tant);
+    }
+
+    async function run(){
+      const lat = parseFloat($("lat").value);
+      const lon = parseFloat($("lon").value);
+      const r = parseInt($("radius").value,10);
+      const method = $("method").value;
+      $("log").textContent = "";
+
+      if(!validCoords(lat,lon) || !(r>0)){
+        setStatus("Veuillez renseigner une latitude/longitude valides et un rayon > 0.", true);
+        return;
+      }
+
+      setStatus(`<span class="spinner"></span> Analyse en cours…`);
+
+      try{
+        // 1) opérateurs présents
+        const ops = await getOperatorsInArea(lat,lon,r);
+        if(ops.length===0){
+          setStatus("Aucun opérateur détecté dans le disque demandé.");
+          displayResults([], 0);
+          return;
+        }
+
+        // 2) stats par opérateur (en parallèle, avec petite régulation)
+        const pool = 3; // petites rafales pour ménager l'API
+        const queue = ops.map(o=>o.name);
+        const results = [];
+        async function worker(){
+          while(queue.length){
+            const op = queue.shift();
+            try{ results.push(await getStatsForOperator(lat,lon,r,op,method)); }
+            catch(e){ log("! échec opérateur "+op+" : "+e.message); }
+          }
+        }
+        const workers = Array.from({length:Math.min(pool, ops.length)}, worker);
+        await Promise.all(workers);
+        results.sort((a,b)=>b.antennes-a.antennes);
+
+        // 3) pylônes tous opérateurs
+        const pylAll = await getAllPylones(lat,lon,r,method);
+
+        displayResults(results, pylAll);
+        setStatus(`Terminé. ${results.length} opérateur(s) analysé(s).`);
+        $("map").src = mapUrl(lat,lon,r);
+      }catch(err){
+        console.error(err);
+        setStatus("Erreur : "+err.message, true);
+      }
+    }
+
+    $("run").addEventListener("click", run);
+    $("showMap").addEventListener("click", ()=>{
+      const lat = parseFloat($("lat").value);
+      const lon = parseFloat($("lon").value);
+      const r = parseInt($("radius").value,10);
+      if(validCoords(lat,lon) && r>0){ $("map").src = mapUrl(lat,lon,r); }
     });
-    const data = await fetchJSON(url);
-    return data?.results || [];
-  }
 
-  // pylônes uniques (supports) pour un opérateur (count distinct approximatif côté serveur)
-  async function countDistinctPylons(op, lat, lon, radius) {
-    const url = buildURL({
-      select: `count(distinct(${FIELD_SUPPORT})) as pylones`,
-      where: whereExpr({lat, lon, radius, operateur: op}),
-      limit: "1",
-      lang: "fr"
+    $("meta").addEventListener("click", async()=>{
+      const url = "https://data.anfr.fr/visualisation/information/?id="+DATASET;
+      window.open(url, "_blank");
     });
-    const data = await fetchJSON(url);
-    return Number(data?.results?.[0]?.pylones ?? 0);
-  }
 
-  // pylônes uniques tous opérateurs
-  async function countAllPylons(lat, lon, radius) {
-    const url = buildURL({
-      select: `count(distinct(${FIELD_SUPPORT})) as pylones`,
-      where: whereExpr({lat, lon, radius}),
-      limit: "1",
-      lang: "fr"
-    });
-    const data = await fetchJSON(url);
-    return Number(data?.results?.[0]?.pylones ?? 0);
-  }
-
-  // transforme la liste groupée en ligne normalisée
-  function toRow(operator, groups) {
-    const M = new Map(groups.map(g => [String(g[FIELD_GENERATION]).toUpperCase(), Number(g.n)]));
-    const g2 = M.get("2G") || 0, g3 = M.get("3G") || 0, g4 = M.get("4G") || 0, g5 = M.get("5G") || 0;
-    return { operator, g2, g3, g4, g5, total: g2+g3+g4+g5 };
-  }
-
-  // exécution principale
-  async function run() {
-    const lat = Number(document.getElementById("lat").value);
-    const lon = Number(document.getElementById("lon").value);
-    const radius = Math.max(1, Number(document.getElementById("radius").value|0));
-    const region = document.getElementById("region").value;
-    const ops = (region === "antilles") ? OPS_ANTIL : OPS_METRO;
-
-    const tbody = document.getElementById("body");
-    tbody.innerHTML = `<tr><td colspan="7" class="muted">Calcul en cours…</td></tr>`;
-
-    try {
-      // 2 appels par opérateur (group_by + distinct supports) en parallèle
-      const rows = await Promise.all(ops.map(async op => {
-        const [groups, pylones] = await Promise.all([
-          countsByGeneration(op, lat, lon, radius),
-          countDistinctPylons(op, lat, lon, radius)
-        ]);
-        const row = toRow(op, groups);
-        row.pylones = pylones;
-        return row;
-      }));
-
-      // rendu
-      tbody.innerHTML = rows.map(r => `
-        <tr>
-          <td>${r.operator}</td>
-          <td>${r.pylones.toLocaleString('fr-FR')}</td>
-          <td>${r.g2.toLocaleString('fr-FR')}</td>
-          <td>${r.g3.toLocaleString('fr-FR')}</td>
-          <td>${r.g4.toLocaleString('fr-FR')}</td>
-          <td>${r.g5.toLocaleString('fr-FR')}</td>
-          <td>${r.total.toLocaleString('fr-FR')}</td>
-        </tr>
-      `).join("");
-
-      // totaux (antennes = somme, pylônes = calcul global côté serveur)
-      const sum = rows.reduce((a, r) => ({
-        pyl: a.pyl + r.pylones, g2:a.g2+r.g2, g3:a.g3+r.g3, g4:a.g4+r.g4, g5:a.g5+r.g5, tot:a.tot+r.total
-      }), {pyl:0,g2:0,g3:0,g4:0,g5:0,tot:0});
-
-      document.getElementById("sumPylons").textContent = (await countAllPylons(lat, lon, radius)).toLocaleString('fr-FR');
-      document.getElementById("sum2g").textContent = sum.g2.toLocaleString('fr-FR');
-      document.getElementById("sum3g").textContent = sum.g3.toLocaleString('fr-FR');
-      document.getElementById("sum4g").textContent = sum.g4.toLocaleString('fr-FR');
-      document.getElementById("sum5g").textContent = sum.g5.toLocaleString('fr-FR');
-      document.getElementById("sumAllAnt").textContent = sum.tot.toLocaleString('fr-FR');
-
-    } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="7" class="error">Erreur : ${e.message}</td></tr>`;
-    }
-  }
-
-  // lien « frame map » ANFR (centrage + rayon + statuts actifs)
-  function openMap() {
-    const lat = Number(document.getElementById("lat").value);
-    const lon = Number(document.getElementById("lon").value);
-    const radius = Math.max(1, Number(document.getElementById("radius").value|0));
-    const url = new URL("https://data.anfr.fr/visualisation/frame/map/");
-    url.searchParams.set("id", DATASET);
-    // on suggère visuellement les deux statuts actifs
-    url.searchParams.append("refine.statut", "En service");
-    url.searchParams.append("refine.statut", "Techniquement opérationnel");
-    url.searchParams.set("geofilter.distance", `${lat},${lon},${radius}`);
-    url.searchParams.set("location", `12,${lat},${lon}`);
-    window.open(url.toString(), "_blank");
-  }
-
-  await detectSchema();
-  document.getElementById("run").addEventListener("click", run);
-  document.getElementById("openMap").addEventListener("click", openMap);
-})();
-</script>
+    // initialiser la carte au chargement
+    $("map").src = mapUrl(parseFloat($("lat").value), parseFloat($("lon").value), parseInt($("radius").value,10));
+  })();
+  </script>
 </body>
 </html>
