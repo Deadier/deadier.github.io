@@ -21,9 +21,7 @@
       margin:0; font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
       color:var(--fg); background:linear-gradient(180deg, var(--bg), #030712 60%);
     }
-    header{
-      padding:24px 16px 8px; max-width:1200px; margin:0 auto;
-    }
+    header{padding:24px 16px 8px; max-width:1200px; margin:0 auto}
     h1{margin:0 0 6px; font-size:22px; font-weight:700}
     p.lead{margin:0; color:var(--muted)}
     main{max-width:1200px; margin:16px auto; padding:0 16px}
@@ -102,6 +100,9 @@
             <option value="dedup">dédoublonnage sup_id (plus fiable si zone immense)</option>
           </select>
           <p class="small muted" style="margin:6px 0 0">Les totaux « antennes » sont toujours calculés par facette <code>generation</code>. Les « pylônes » utilisent par défaut la facette <code>sup_id</code>.</p>
+          <label style="margin-top:12px; display:flex; align-items:center; gap:8px">
+            <input id="forceJsonp" type="checkbox" /> Forcer le mode JSONP (contourne CORS)
+          </label>
         </div>
         <div>
           <label>&nbsp;</label>
@@ -109,6 +110,7 @@
             <button id="run" class="primary">Analyser</button>
             <button id="showMap">Afficher la carte</button>
             <button id="meta" class="ghost">Métadonnées du jeu</button>
+            <button id="tests" class="ghost">Tests</button>
           </div>
         </div>
       </div>
@@ -165,7 +167,7 @@
 
   <script>
   (function(){
-    const API_BASE = "https://data.anfr.fr/d4c/api/records/1.0/search/";
+    const API_BASE = "https://data.anfr.fr/d4c/api/records/1.0/search/"; // 1.0 pour geofilter.distance + facettes
     const DATASET = "observatoire_2g_3g_4g";
     const STATUS_FILTERS = ["En service", "Techniquement opérationnel"]; // 2G/3G/4G + 5G
 
@@ -208,7 +210,6 @@
       const zoom = zoomFromRadius(r);
       const usp = new URLSearchParams();
       usp.set("id", DATASET);
-      // filtres permanents
       for(const s of STATUS_FILTERS){ usp.append("refine.statut", s); }
       usp.set("geofilter.distance", `${lat},${lon},${r}`);
       usp.set("datasetcard", "true");
@@ -224,22 +225,52 @@
       if(base.generation){ usp.append("refine.generation", base.generation); }
       if(base.distance){ usp.append("geofilter.distance", base.distance); }
       for(const s of STATUS_FILTERS){ usp.append("refine.statut", s); }
-      if(base.fields){ usp.set("fields", base.fields); }
-      if(base.records_format){ usp.set("records_format", base.records_format); }
       if(base.start != null){ usp.set("start", String(base.start)); }
       if(base.rows != null){ usp.set("rows", String(base.rows)); }
       return usp;
     }
 
-    async function fetchJson(url){
-      const res = await fetch(url, { headers:{"Accept":"application/json"}});
-      if(!res.ok) throw new Error(`HTTP ${res.status} – ${res.statusText}`);
-      return res.json();
+    // --- JSONP fallback (contourne CORS) ---
+    function jsonp(url){
+      return new Promise((resolve, reject)=>{
+        const cb = "jsonp_cb_" + Math.random().toString(36).slice(2);
+        const sep = url.includes("?") ? "&" : "?";
+        const s = document.createElement("script");
+        const timer = setTimeout(()=>{
+          cleanup();
+          reject(new Error("JSONP timeout"));
+        }, 15000);
+        function cleanup(){
+          clearTimeout(timer);
+          delete window[cb];
+          if(s.parentNode) s.parentNode.removeChild(s);
+        }
+        window[cb] = (data)=>{ cleanup(); resolve(data); };
+        s.onerror = ()=>{ cleanup(); reject(new Error("JSONP load error")); };
+        s.src = url + sep + "callback=" + cb;
+        document.body.appendChild(s);
+      });
     }
 
-    function getFacet(items, name){
-      const g = (items || []).find(x => x.name === name);
-      return g ? g.facets || [] : [];
+    async function fetchJson(url){
+      // possibilité de forcer JSONP via l'UI
+      if($("forceJsonp").checked){
+        log("⚠ mode forcé JSONP");
+        return jsonp(url);
+      }
+      try{
+        const res = await fetch(url, { mode:"cors" });
+        if(!res.ok) throw new Error(`HTTP ${res.status} – ${res.statusText}`);
+        return await res.json();
+      }catch(err){
+        log("⚠ fetch a échoué ("+err.message+") → tentative JSONP");
+        return jsonp(url);
+      }
+    }
+
+    function getFacet(groups, name){
+      const g = (groups || []).find(x => x.name === name);
+      return g ? (g.facets || []) : [];
     }
 
     function facetsToMap(facets){
@@ -259,7 +290,6 @@
     }
 
     async function getStatsForOperator(lat, lon, r, operator, method){
-      // 1 appel facettes (generation + sup_id)
       const p = buildParams({ facets:["generation","sup_id"], rows:0, distance:`${lat},${lon},${r}`, adm:operator });
       const url = `${API_BASE}?${p.toString()}`;
       log("→ stats opérateur (facettes) : "+url);
@@ -267,7 +297,7 @@
 
       const genFacet = facetsToMap(getFacet(data.facet_groups, "generation"));
       const antennes = (genFacet["2G"]||0)+(genFacet["3G"]||0)+(genFacet["4G"]||0)+(genFacet["5G"]||0);
-      let pylones = getFacet(data.facet_groups, "sup_id").length; // nombre de valeurs distinctes
+      let pylones = getFacet(data.facet_groups, "sup_id").length; // valeurs distinctes
 
       if(method === "dedup"){
         pylones = await countSupportsByDedup(lat, lon, r, operator);
@@ -286,18 +316,21 @@
     }
 
     async function countSupportsByDedup(lat, lon, r, operator){
-      // Fallback : itère jusqu'à 10 000 (limite API recherche) en pages de 1000 sur le seul champ sup_id
+      // Fallback : pagination 1.0 (pas de 'fields' ni 'records_format' en 1.0)
       const rows = 1000; let start = 0; const supports = new Set();
       while(start < 10000){
-        const p = buildParams({ distance:`${lat},${lon},${r}`, rows, start, fields:"sup_id", records_format:"lists" });
+        const p = buildParams({ distance:`${lat},${lon},${r}`, rows, start });
         if(operator){ p.append("refine.adm_lb_nom", operator); }
         const url = `${API_BASE}?${p.toString()}`;
         log("→ page supports (dédoublonnage) : "+url);
         const data = await fetchJson(url);
-        const rowsList = Array.isArray(data.records) ? data.records : [];
-        if(rowsList.length === 0) break;
-        for(const list of rowsList){ const sid = list && list[0]; if(sid!=null) supports.add(String(sid)); }
-        if(rowsList.length < rows) break;
+        const recs = Array.isArray(data.records) ? data.records : [];
+        if(recs.length === 0) break;
+        for(const rec of recs){
+          const sid = rec && rec.fields && rec.fields.sup_id;
+          if(sid!=null) supports.add(String(sid));
+        }
+        if(recs.length < rows) break;
         start += rows;
       }
       return supports.size;
@@ -346,7 +379,6 @@
       setStatus(`<span class="spinner"></span> Analyse en cours…`);
 
       try{
-        // 1) opérateurs présents
         const ops = await getOperatorsInArea(lat,lon,r);
         if(ops.length===0){
           setStatus("Aucun opérateur détecté dans le disque demandé.");
@@ -354,10 +386,8 @@
           return;
         }
 
-        // 2) stats par opérateur (en parallèle, avec petite régulation)
-        const pool = 3; // petites rafales pour ménager l'API
-        const queue = ops.map(o=>o.name);
-        const results = [];
+        // stats par opérateur (petites rafales)
+        const pool = 3; const queue = ops.map(o=>o.name); const results = [];
         async function worker(){
           while(queue.length){
             const op = queue.shift();
@@ -365,11 +395,9 @@
             catch(e){ log("! échec opérateur "+op+" : "+e.message); }
           }
         }
-        const workers = Array.from({length:Math.min(pool, ops.length)}, worker);
-        await Promise.all(workers);
+        await Promise.all(Array.from({length:Math.min(pool, ops.length)}, worker));
         results.sort((a,b)=>b.antennes-a.antennes);
 
-        // 3) pylônes tous opérateurs
         const pylAll = await getAllPylones(lat,lon,r,method);
 
         displayResults(results, pylAll);
@@ -381,6 +409,29 @@
       }
     }
 
+    // --- Jeux de tests unitaires (simples) ---
+    function runTests(){
+      const failures = [];
+      // Test 1: buildParams inclut dataset et rows=0 par défaut
+      const p1 = buildParams({});
+      if(p1.get("dataset") !== DATASET) failures.push("buildParams: dataset manquant");
+      if(p1.get("rows") !== "0") failures.push("buildParams: rows par défaut incorrect");
+      // Test 2: zoomFromRadius (seuils)
+      if(zoomFromRadius(2500) !== 14) failures.push("zoomFromRadius: 2500m devrait donner 14");
+      if(zoomFromRadius(75000) !== 9) failures.push("zoomFromRadius: 75km devrait donner 9");
+      // Test 3: facetsToMap
+      const m = facetsToMap([{name:"2G",count:3},{name:"5G",count:1}]);
+      if(!(m["2G"]===3 && m["5G"]===1)) failures.push("facetsToMap: mappage incorrect");
+      // Résultat
+      if(failures.length){
+        log("Tests: ❌ échecs\n - "+failures.join("\n - "));
+        alert("Tests: échecs\n"+failures.join("\n"));
+      } else {
+        log("Tests: ✅ tous les tests passés");
+        alert("Tests: tous les tests passés");
+      }
+    }
+
     $("run").addEventListener("click", run);
     $("showMap").addEventListener("click", ()=>{
       const lat = parseFloat($("lat").value);
@@ -389,10 +440,12 @@
       if(validCoords(lat,lon) && r>0){ $("map").src = mapUrl(lat,lon,r); }
     });
 
-    $("meta").addEventListener("click", async()=>{
+    $("meta").addEventListener("click", ()=>{
       const url = "https://data.anfr.fr/visualisation/information/?id="+DATASET;
       window.open(url, "_blank");
     });
+
+    $("tests").addEventListener("click", runTests);
 
     // initialiser la carte au chargement
     $("map").src = mapUrl(parseFloat($("lat").value), parseFloat($("lon").value), parseInt($("radius").value,10));
