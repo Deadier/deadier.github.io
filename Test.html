@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>Cartographie des antennes mobiles – ANFR (révisée)</title>
+  <title>Cartographie des antennes mobiles – ANFR (D4C)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body { font-family: Arial, sans-serif; background:#f4f4f4; color:#333; margin:0 }
@@ -37,9 +37,13 @@
 <body>
   <button id="infoButton">Informations</button>
   <div id="infoSection">
-    <p>Cette page compte et visualise les antennes de téléphonie mobile et les pylônes (<em>supports</em>) dans une zone donnée, par opérateur. Saisissez des coordonnées, un rayon et choisissez la zone "métropole" ou "Antilles‑Guyane", puis cliquez sur « Afficher les antennes ».</p>
-    <p class="muted">Remarque : les décomptes sont maintenant calculés côté serveur via l’API <strong>Explore v2.1</strong> de la plateforme Opendatasoft de l’ANFR, ce qui évite la limite de 1000 enregistrements et renvoie des totaux exacts sans télécharger toutes les lignes.</p>
-    <button id="updateDateButton">Afficher la date de dernière mise à jour du jeu de données de l'ANFR</button>
+    <p>Cette page compte et visualise les antennes et les pylônes (<em>supports</em>) dans une zone donnée, par opérateur. Elle utilise l'API <strong>D4C v1</strong> du portail ANFR (<code>/d4c/api/records/1.0/search/</code>), compatible avec ce domaine.</p>
+    <ul>
+      <li>Comptes par génération via <strong>facettes</strong> (une requête par opérateur).</li>
+      <li>Pylônes par opérateur via la facette <code>sup_id</code> (avec repli strict si nécessaire).</li>
+      <li>Total pylônes via <code>facet=sup_id</code> (repli strict possible).</li>
+    </ul>
+    <button id="updateDateButton">Afficher la date de dernière mise à jour du jeu de données ANFR</button>
     <p id="lastUpdateDate"></p>
   </div>
 
@@ -88,17 +92,25 @@
   </div>
 
 <script>
-// === Constantes ANFR / Opendatasoft ===
+// === Constantes ANFR D4C ===
 const DOMAIN = 'https://data.anfr.fr';
 const DATASET = 'observatoire_2g_3g_4g';
+const RECORDS = DOMAIN + '/d4c/api/records/1.0/search/';
+const DATASET_LOOKUP = DOMAIN + '/d4c/api/datasets/1.0/' + DATASET + '/';
+
+// Avertir si la page est ouverte en file:// (CORS origin null)
+if (location.protocol === 'file:') {
+  setTimeout(()=>{
+    alert("⚠️ Vous ouvrez le fichier en local (origin 'null'). Servez la page via http://localhost ou hébergez‑la (GitHub Pages) pour éviter les blocages CORS.");
+  }, 300);
+}
 
 // === Utils ===
 const isValidLatitude = v => !isNaN(parseFloat(v)) && Math.abs(parseFloat(v)) <= 90;
 const isValidLongitude = v => !isNaN(parseFloat(v)) && Math.abs(parseFloat(v)) <= 180;
 const isValidRadius = r => !isNaN(parseFloat(r)) && parseFloat(r) > 0 && parseFloat(r) <= 6_371_000;
 const fmt = n => new Intl.NumberFormat('fr-FR').format(n);
-
-function encode(v){ return encodeURIComponent(v); }
+const enc = encodeURIComponent;
 
 function operatorLogo(name){
   const logos = {
@@ -115,7 +127,6 @@ function operatorLogo(name){
 }
 
 function displayNameFromDataset(op, region){
-  // Le dataset porte les Antilles sous OUTREMER TELECOM et ORANGE ; on adapte l'affichage
   if(region === 'antilles'){
     if(op === 'OUTREMER TELECOM') return 'SFR CARAIBES';
     if(op === 'ORANGE') return 'ORANGE CARAIBES';
@@ -131,72 +142,118 @@ function datasetNameFromDisplay(op, region){
   return op;
 }
 
-// Construit la clause WHERE pour Explore v2.1
-function buildWhere(lat, lon, radius){
-  const r = parseFloat(radius);
-  // champ géo du dataset: `coord`
-  return `within_distance(coord, geom'POINT(${lon} ${lat})', ${r} m) and (statut = "En service" or statut = "Techniquement opérationnel")`;
+// Construire URLSearchParams en gérant les clés répétées (refine.statut deux fois, facet multiple…)
+function makeParams(kv){
+  const p = new URLSearchParams();
+  for(const [k,v] of kv){ if(Array.isArray(v)){ for(const x of v) p.append(k, x); } else if(v !== undefined && v !== null) { p.append(k, v); } }
+  return p;
 }
 
-// Client léger Explore v2.1 avec timeout
-async function fetchExplore(pathAndQuery, {timeoutMs = 15000} = {}){
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
+async function fetchJSON(url, {timeoutMs=15000} = {}){
+  const ctl = new AbortController();
+  const id = setTimeout(()=>ctl.abort(), timeoutMs);
   try{
-    const url = `${DOMAIN}/api/explore/v2.1/${pathAndQuery}`;
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: controller.signal });
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } finally {
-    clearTimeout(id);
+    const r = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: ctl.signal });
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } finally { clearTimeout(id); }
+}
+
+// Facette par génération pour UN opérateur
+async function getGenerationsForOperator(op, lat, lon, radius){
+  const params = makeParams([
+    ['dataset', DATASET],
+    ['rows', '0'],
+    ['geofilter.distance', `${lat},${lon},${radius}`],
+    ['refine.statut', ['En service', 'Techniquement opérationnel']],
+    ['refine.adm_lb_nom', datasetNameFromDisplay(op, document.querySelector('input[name="region"]:checked').value)],
+    ['facet', 'generation']
+  ]);
+  const url = RECORDS + '?' + params.toString();
+  const data = await fetchJSON(url);
+  const group = (data.facet_groups || []).find(g => g.name === 'generation');
+  const res = { '2G':0,'3G':0,'4G':0,'5G':0 };
+  if(group){ for(const f of group.facets){ res[f.name] = f.count; } }
+  return res;
+}
+
+// Pylônes (supports) pour UN opérateur – essai via facet sup_id, repli strict si >=100
+async function getPylonesForOperator(op, lat, lon, radius){
+  const region = document.querySelector('input[name="region"]:checked').value;
+  const opData = datasetNameFromDisplay(op, region);
+  // 1) essai via facets
+  let params = makeParams([
+    ['dataset', DATASET],
+    ['rows', '0'],
+    ['geofilter.distance', `${lat},${lon},${radius}`],
+    ['refine.statut', ['En service', 'Techniquement opérationnel']],
+    ['refine.adm_lb_nom', opData],
+    ['facet', 'sup_id'],
+    ['facet.limit', '-1'] // illimité si supporté
+  ]);
+  try{
+    let data = await fetchJSON(RECORDS + '?' + params.toString());
+    const grp = (data.facet_groups || []).find(g => g.name === 'sup_id');
+    if(grp && grp.facets){
+      const n = grp.facets.length;
+      if(n < 100) return n; // probablement complet
+      // si n >= 100, il se peut qu'il y ait troncature ; repli strict ci-dessous
+    }
+  } catch(e){ /* on passera au repli strict */ }
+
+  // 2) repli strict : récupérer les sup_id et dédupliquer côté client (rows<=10000)
+  params = makeParams([
+    ['dataset', DATASET],
+    ['rows', '10000'],
+    ['fields', 'sup_id'],
+    ['geofilter.distance', `${lat},${lon},${radius}`],
+    ['refine.statut', ['En service', 'Techniquement opérationnel']],
+    ['refine.adm_lb_nom', opData]
+  ]);
+  const data2 = await fetchJSON(RECORDS + '?' + params.toString());
+  const uniq = new Set();
+  for(const rec of (data2.records || [])){
+    const v = rec.fields && rec.fields.sup_id; if(v) uniq.add(v);
   }
+  return uniq.size;
 }
 
-// Comptes par opérateur et génération (1 requête)
-async function getAntennasByOperatorAndGen(lat, lon, radius){
-  const where = buildWhere(lat, lon, radius);
-  const qs = new URLSearchParams({
-    select: 'adm_lb_nom, generation, count(*) as nb',
-    where,
-    group_by: 'adm_lb_nom, generation',
-    limit: '20000' // plafond v2.1 avec group_by
-  });
-  const path = `catalog/datasets/${encode(DATASET)}/records?` + qs.toString();
-  const data = await fetchExplore(path);
-  return data.results; // [{adm_lb_nom, generation, nb}]
+// Total pylônes (tous opérateurs) – même logique que ci‑dessus
+async function getTotalPylones(lat, lon, radius){
+  let params = makeParams([
+    ['dataset', DATASET],
+    ['rows', '0'],
+    ['geofilter.distance', `${lat},${lon},${radius}`],
+    ['refine.statut', ['En service', 'Techniquement opérationnel']],
+    ['facet', 'sup_id'],
+    ['facet.limit', '-1']
+  ]);
+  try{
+    const data = await fetchJSON(RECORDS + '?' + params.toString());
+    const grp = (data.facet_groups || []).find(g => g.name === 'sup_id');
+    if(grp && grp.facets) return grp.facets.length;
+  } catch(e){ }
+  // repli strict
+  params = makeParams([
+    ['dataset', DATASET],
+    ['rows', '10000'],
+    ['fields', 'sup_id'],
+    ['geofilter.distance', `${lat},${lon},${radius}`],
+    ['refine.statut', ['En service', 'Techniquement opérationnel']]
+  ]);
+  const data2 = await fetchJSON(RECORDS + '?' + params.toString());
+  const uniq = new Set();
+  for(const rec of (data2.records || [])){
+    const v = rec.fields && rec.fields.sup_id; if(v) uniq.add(v);
+  }
+  return uniq.size;
 }
 
-// Comptes de pylônes uniques par opérateur (1 requête)
-async function getPylonsByOperator(lat, lon, radius){
-  const where = buildWhere(lat, lon, radius);
-  const qs = new URLSearchParams({
-    select: 'adm_lb_nom, count(distinct sup_id) as nb_pylones',
-    where,
-    group_by: 'adm_lb_nom',
-    limit: '20000'
-  });
-  const path = `catalog/datasets/${encode(DATASET)}/records?` + qs.toString();
-  const data = await fetchExplore(path);
-  const map = new Map();
-  for(const r of data.results){ map.set(r.adm_lb_nom, r.nb_pylones); }
-  return map; // Map(op -> nb_pylones)
-}
-
-// Total pylônes uniques dans la zone (1 requête)
-async function getTotalPylons(lat, lon, radius){
-  const where = buildWhere(lat, lon, radius);
-  const qs = new URLSearchParams({ select: 'count(distinct sup_id) as nb_pylones', where, limit: '1' });
-  const path = `catalog/datasets/${encode(DATASET)}/records?` + qs.toString();
-  const data = await fetchExplore(path);
-  return data.results?.[0]?.nb_pylones ?? 0;
-}
-
+// Carte ANFR
 function buildMapUrl(operatorDisplay, lat, lon, radius, region){
   const opDataset = datasetNameFromDisplay(operatorDisplay, region);
-  const op = encode(opDataset);
   const zoom = (()=>{ const r=+radius; if(r<=35) return 20; if(r<=70) return 19; if(r<=140) return 18; if(r<=270) return 17; if(r<=550) return 16; if(r<=1100) return 15; if(r<=2200) return 14; if(r<=4400) return 13; if(r<=8800) return 12; return 11; })();
-  // On utilise deux raffinements statut : l'interface les combine en OR
-  return `${DOMAIN}/visualisation/frame/map/?id=${encode(DATASET)}&refine.adm_lb_nom=${op}&refine.statut=${encode('En service')}&refine.statut=${encode('Techniquement opérationnel')}&geofilter.distance=${lat},${lon},${radius}&location=${zoom},${lat},${lon}&datasetcard=true&scrollWheelZoom=true`;
+  return `${DOMAIN}/visualisation/frame/map/?id=${enc(DATASET)}&refine.adm_lb_nom=${enc(opDataset)}&refine.statut=${enc('En service')}&refine.statut=${enc('Techniquement opérationnel')}&geofilter.distance=${lat},${lon},${radius}&location=${zoom},${lat},${lon}&datasetcard=true&scrollWheelZoom=true`;
 }
 
 function showResults(){
@@ -237,7 +294,7 @@ function addRow({operatorDisplay, totals, pylones, lat, lon, radius, region}){
     genCells.push(td);
   }
 
-  // Pylônes uniques
+  // Pylônes
   const tdP = document.createElement('td');
   tdP.textContent = fmt(pylones || 0) + ' pylônes';
   tdP.setAttribute('data-label','Nombre de pylônes');
@@ -254,22 +311,22 @@ function addRow({operatorDisplay, totals, pylones, lat, lon, radius, region}){
   tbody.appendChild(tr);
 }
 
-// Gestion du bouton info
+// UI interactions
+
 document.getElementById('infoButton').addEventListener('click', ()=>{
   const s = document.getElementById('infoSection');
   s.style.display = (s.style.display === 'block') ? 'none' : 'block';
 });
 
-// Date de dernière mise à jour du dataset (Explore v2.1)
 document.getElementById('updateDateButton').addEventListener('click', async ()=>{
-  const path = `catalog/datasets/${encode(DATASET)}`;
   try{
-    const data = await fetchExplore(path);
-    const iso = data.dataset?.metadata_modified || data.dataset?.modified || data.metadata_modified;
+    const data = await fetchJSON(DATASET_LOOKUP);
+    let iso = data && (data.modified || (data.resources && data.resources[0] && data.resources[0].last_modified));
+    if(!iso && data && data.metas) iso = data.metas.modified;
     if(iso){
       const d = new Date(iso);
-      const fmtDate = d.toLocaleDateString('fr-FR', {year:'numeric', month:'2-digit', day:'2-digit'}) + ' ' + d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-      document.getElementById('lastUpdateDate').textContent = 'Dernière mise à jour : ' + fmtDate;
+      const s = d.toLocaleDateString('fr-FR', {year:'numeric', month:'2-digit', day:'2-digit'}) + ' ' + d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+      document.getElementById('lastUpdateDate').textContent = 'Dernière mise à jour : ' + s;
     } else {
       document.getElementById('lastUpdateDate').textContent = 'Date de dernière mise à jour indisponible';
     }
@@ -278,9 +335,8 @@ document.getElementById('updateDateButton').addEventListener('click', async ()=>
   }
 });
 
-// Géolocalisation
 function showError(err){
-  const codes = { 1: "L'utilisateur a refusé la demande de géolocalisation.", 2: "Les informations de localisation ne sont pas disponibles.", 3: "La demande d'obtenir la position a expiré." };
+  const codes = { 1: "L'utilisateur a refusé la demande de géolocalisation.", 2: "Les informations de localisation ne sont pas disponibles.", 3: "La demande a expiré." };
   alert(codes[err.code] || 'Erreur inconnue.');
 }
 
@@ -290,6 +346,12 @@ document.getElementById('geolocateButton').addEventListener('click', ()=>{
     document.getElementById('longitude').value = pos.coords.longitude.toFixed(6);
   }, showError); } else { alert('La géolocalisation n\'est pas prise en charge.'); }
 });
+
+function determineOperators(region){
+  return (region === 'metropole')
+    ? ['ORANGE','BOUYGUES TELECOM','SFR','FREE MOBILE']
+    : ['ORANGE CARAIBES','FREE CARAIBES','DIGICEL','SFR CARAIBES'];
+}
 
 // Soumission du formulaire
  document.getElementById('mapForm').addEventListener('submit', async (e)=>{
@@ -308,29 +370,21 @@ document.getElementById('geolocateButton').addEventListener('click', ()=>{
   document.getElementById('totalPylons').textContent = 'Patientez, chargement en cours…';
 
   try{
-    const [byOpGen, pylByOp, totalPyl] = await Promise.all([
-      getAntennasByOperatorAndGen(lat, lon, radius),
-      getPylonsByOperator(lat, lon, radius),
-      getTotalPylons(lat, lon, radius)
-    ]);
+    const ops = determineOperators(region);
 
-    // Regrouper par opérateur
-    const map = new Map();
-    for(const r of byOpGen){
-      const op = r.adm_lb_nom;
-      const gen = r.generation;
-      const nb = Number(r.nb) || 0;
-      if(!map.has(op)) map.set(op, { '2G':0, '3G':0, '4G':0, '5G':0 });
-      if(['2G','3G','4G','5G'].includes(gen)) map.get(op)[gen] += nb;
+    // Total pylônes (tous opérateurs)
+    getTotalPylones(lat, lon, radius).then(n => {
+      document.getElementById('totalPylons').textContent = `Nombre total de pylônes uniques : ${fmt(n)}`;
+    }).catch(()=>{
+      document.getElementById('totalPylons').textContent = 'Erreur lors du calcul du total de pylônes';
+    });
+
+    // Par opérateur
+    for(const op of ops){
+      const totals = await getGenerationsForOperator(op, lat, lon, radius);
+      const pyl = await getPylonesForOperator(op, lat, lon, radius);
+      addRow({ operatorDisplay: op, totals, pylones: pyl, lat, lon, radius, region });
     }
-
-    for(const [op, totals] of map.entries()){
-      const operatorDisplay = displayNameFromDataset(op, region);
-      const pylones = pylByOp.get(op) || 0;
-      addRow({ operatorDisplay, totals, pylones, lat, lon, radius, region });
-    }
-
-    document.getElementById('totalPylons').textContent = `Nombre total de pylônes uniques : ${fmt(totalPyl)}`;
   } catch(err){
     console.error(err);
     document.getElementById('totalPylons').innerHTML = `
