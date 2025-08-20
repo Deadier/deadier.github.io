@@ -103,6 +103,14 @@
           <label style="margin-top:12px; display:flex; align-items:center; gap:8px">
             <input id="forceJsonp" type="checkbox" /> Forcer le mode JSONP (contourne CORS)
           </label>
+          <label style="margin-top:8px; display:flex; align-items:center; gap:8px">
+            <input id="usePublicProxies" type="checkbox" /> Essayer des proxys publics si JSONP échoue (non recommandé en production)
+          </label>
+          <label style="margin-top:8px">
+            proxy personnalisé (préfixe d’URL)&nbsp;
+            <input id="customProxy" type="text" placeholder="https://votre-proxy.exemple/fetch/" />
+            <span class="small muted">Laissez vide pour ne pas l’utiliser.</span>
+          </label>
         </div>
         <div>
           <label>&nbsp;</label>
@@ -181,6 +189,12 @@
       "DIGICEL":"Digicel"
     };
 
+    const PUBLIC_PROXIES = [
+      u => `https://cors.isomorphic-git.org/${u}`,
+      u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+      u => `https://thingproxy.freeboard.io/fetch/${u}`
+    ];
+
     const $ = (id)=>document.getElementById(id);
     const log = (msg)=>{$("log").textContent += msg+"\n"};
 
@@ -230,16 +244,17 @@
       return usp;
     }
 
-    // --- JSONP fallback (contourne CORS) ---
-    function jsonp(url){
+    // --- Outils réseau ---
+    function mkJsonpUrl(url, cbParam, cbName){
+      const sep = url.includes("?") ? "&" : "?";
+      return url + sep + encodeURIComponent(cbParam) + "=" + encodeURIComponent(cbName);
+    }
+
+    function jsonpOnce(url, cbParam){
       return new Promise((resolve, reject)=>{
         const cb = "jsonp_cb_" + Math.random().toString(36).slice(2);
-        const sep = url.includes("?") ? "&" : "?";
         const s = document.createElement("script");
-        const timer = setTimeout(()=>{
-          cleanup();
-          reject(new Error("JSONP timeout"));
-        }, 15000);
+        const timer = setTimeout(()=>{ cleanup(); reject(new Error("JSONP timeout")); }, 15000);
         function cleanup(){
           clearTimeout(timer);
           delete window[cb];
@@ -247,25 +262,68 @@
         }
         window[cb] = (data)=>{ cleanup(); resolve(data); };
         s.onerror = ()=>{ cleanup(); reject(new Error("JSONP load error")); };
-        s.src = url + sep + "callback=" + cb;
+        s.src = mkJsonpUrl(url, cbParam, cb);
         document.body.appendChild(s);
       });
     }
 
-    async function fetchJson(url){
-      // possibilité de forcer JSONP via l'UI
-      if($("forceJsonp").checked){
-        log("⚠ mode forcé JSONP");
-        return jsonp(url);
+    async function jsonp(url){
+      // Essaie d'abord ?callback=, puis ?jsonp=
+      try{ return await jsonpOnce(url, "callback"); }
+      catch(e1){ log("⚠ JSONP with ?callback a échoué ("+e1.message+")"); }
+      return jsonpOnce(url, "jsonp");
+    }
+
+    async function fetchViaProxies(url){
+      const custom = $("customProxy").value.trim();
+      const candidates = [];
+      if(custom){
+        const normalized = custom.endsWith("/") ? custom : custom + "/";
+        candidates.push((u)=> normalized + u);
       }
+      if($("usePublicProxies").checked){
+        candidates.push(...PUBLIC_PROXIES);
+      }
+      for(const fn of candidates){
+        const proxied = fn(url);
+        try{
+          log("→ tentative via proxy : "+proxied);
+          const res = await fetch(proxied, { cache:"no-store" });
+          if(!res.ok) throw new Error("HTTP "+res.status);
+          // Certaines passerelles renvoient text/plain
+          const text = await res.text();
+          const data = JSON.parse(text);
+          return data;
+        }catch(err){
+          log("⚠ proxy KO : "+err.message);
+        }
+      }
+      throw new Error("Aucun proxy n'a fonctionné");
+    }
+
+    async function fetchJson(url){
+      // 1) essai direct CORS
       try{
-        const res = await fetch(url, { mode:"cors" });
+        const res = await fetch(url, { mode:"cors", cache:"no-store" });
         if(!res.ok) throw new Error(`HTTP ${res.status} – ${res.statusText}`);
         return await res.json();
-      }catch(err){
-        log("⚠ fetch a échoué ("+err.message+") → tentative JSONP");
-        return jsonp(url);
+      }catch(err1){
+        log("⚠ fetch CORS a échoué ("+err1.message+")");
       }
+      // 2) forcé JSONP via UI ou fallback
+      try{
+        if($("forceJsonp").checked){ log("⚠ mode forcé JSONP activé"); }
+        return await jsonp(url);
+      }catch(err2){
+        log("⚠ JSONP a échoué ("+err2.message+")");
+      }
+      // 3) proxys si demandés
+      if($("usePublicProxies").checked || $("customProxy").value.trim()){
+        try{ return await fetchViaProxies(url); }
+        catch(err3){ log("⚠ proxys indisponibles ("+err3.message+")"); }
+      }
+      // 4) échec total
+      throw new Error("Impossible de récupérer les données (CORS/JSONP/Proxy)");
     }
 
     function getFacet(groups, name){
@@ -316,7 +374,7 @@
     }
 
     async function countSupportsByDedup(lat, lon, r, operator){
-      // Fallback : pagination 1.0 (pas de 'fields' ni 'records_format' en 1.0)
+      // Pagination 1.0 (pas de 'fields' ni 'records_format' en 1.0)
       const rows = 1000; let start = 0; const supports = new Set();
       while(start < 10000){
         const p = buildParams({ distance:`${lat},${lon},${r}`, rows, start });
@@ -409,7 +467,7 @@
       }
     }
 
-    // --- Jeux de tests unitaires (simples) ---
+    // --- Jeux de tests unitaires ---
     function runTests(){
       const failures = [];
       // Test 1: buildParams inclut dataset et rows=0 par défaut
@@ -422,6 +480,11 @@
       // Test 3: facetsToMap
       const m = facetsToMap([{name:"2G",count:3},{name:"5G",count:1}]);
       if(!(m["2G"]===3 && m["5G"]===1)) failures.push("facetsToMap: mappage incorrect");
+      // Test 4: mkJsonpUrl ajoute bien le paramètre, avec & ou ?
+      const uA = mkJsonpUrl("https://x/api", "callback", "cb");
+      const uB = mkJsonpUrl("https://x/api?rows=0", "callback", "cb");
+      if(!uA.endsWith("callback=cb")) failures.push("mkJsonpUrl: ajout sans query incorrect");
+      if(!uB.includes("&callback=cb")) failures.push("mkJsonpUrl: ajout avec query incorrect");
       // Résultat
       if(failures.length){
         log("Tests: ❌ échecs\n - "+failures.join("\n - "));
