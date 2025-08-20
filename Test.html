@@ -245,6 +245,15 @@
     }
 
     // --- Outils réseau ---
+    function ensureSuccess(url, data){
+      // Certains endpoints Opendatasoft renvoient un wrapper {status:"success"|"error"}
+      // cf. documentation Explore/Search v1 (JSONP) ; on normalise ici les erreurs pour le journal.
+      if(data && typeof data.status === "string" && data.status !== "success"){
+        const msg = data.message || data.error || "status=\""+data.status+"\"";
+        throw new Error("API ANFR: réponse en erreur pour " + url + " (" + msg + ")");
+      }
+      return data;
+    }
     function mkJsonpUrl(url, cbParam, cbName){
       const sep = url.includes("?") ? "&" : "?";
       return url + sep + encodeURIComponent(cbParam) + "=" + encodeURIComponent(cbName);
@@ -254,7 +263,24 @@
       return new Promise((resolve, reject)=>{
         const cb = "jsonp_cb_" + Math.random().toString(36).slice(2);
         const s = document.createElement("script");
+        s.async = true;
         const timer = setTimeout(()=>{ cleanup(); reject(new Error("JSONP timeout")); }, 15000);
+        function cleanup(){
+          clearTimeout(timer);
+          try{ delete window[cb]; }catch(_){ window[cb]=undefined; }
+          if(s.parentNode) s.parentNode.removeChild(s);
+        }
+        window[cb] = (data)=>{ cleanup(); try{ resolve(ensureSuccess(s.src, data)); }catch(e){ reject(e); } };
+        s.onerror = ()=>{ cleanup(); reject(new Error("JSONP load error")); };
+        // IMPORTANT: certains domaines Opendatasoft exigent 'format=jsonp' EN PLUS du paramètre de callback
+        let src = mkJsonpUrl(url, cbParam, cb);
+        if(!/[?&]format=jsonp/i.test(src)){
+          src += (src.includes("?") ? "&" : "?") + "format=jsonp";
+        }
+        s.src = src;
+        document.body.appendChild(s);
+      });
+    }, 15000);
         function cleanup(){
           clearTimeout(timer);
           delete window[cb];
@@ -270,6 +296,9 @@
     async function jsonp(url){
       // Essaie d'abord ?callback=, puis ?jsonp=
       try{ return await jsonpOnce(url, "callback"); }
+      catch(e1){ log("⚠ JSONP with ?callback a échoué ("+e1.message+")"); }
+      return jsonpOnce(url, "jsonp");
+    }
       catch(e1){ log("⚠ JSONP with ?callback a échoué ("+e1.message+")"); }
       return jsonpOnce(url, "jsonp");
     }
@@ -293,7 +322,7 @@
           // Certaines passerelles renvoient text/plain
           const text = await res.text();
           const data = JSON.parse(text);
-          return data;
+          return ensureSuccess(proxied, data);
         }catch(err){
           log("⚠ proxy KO : "+err.message);
         }
@@ -306,7 +335,8 @@
       try{
         const res = await fetch(url, { mode:"cors", cache:"no-store" });
         if(!res.ok) throw new Error(`HTTP ${res.status} – ${res.statusText}`);
-        return await res.json();
+        const data = await res.json();
+        return ensureSuccess(url, data);
       }catch(err1){
         log("⚠ fetch CORS a échoué ("+err1.message+")");
       }
@@ -485,11 +515,25 @@
       const uB = mkJsonpUrl("https://x/api?rows=0", "callback", "cb");
       if(!uA.endsWith("callback=cb")) failures.push("mkJsonpUrl: ajout sans query incorrect");
       if(!uB.includes("&callback=cb")) failures.push("mkJsonpUrl: ajout avec query incorrect");
+      // Test 5: ensureSuccess lève en cas de status=error
+      try{ ensureSuccess("https://exemple", {status:"error", message:"boom"}); failures.push("ensureSuccess: aurait dû lever"); }catch(_){}
+      // Test 6: mapUrl inclut les statuts et la location
+      const mu = mapUrl(48.8566, 2.3522, 2500);
+      if(!mu.includes("refine.statut=En+service") || !mu.includes("refine.statut=Techniquement+op%C3%A9rationnel")) failures.push("mapUrl: filtres 'statut' manquants");
+      if(!mu.includes("location=14,48.8566,2.3522")) failures.push("mapUrl: location/zoom incorrect");
       // Résultat
       if(failures.length){
-        log("Tests: ❌ échecs\n - "+failures.join("\n - "));
-        alert("Tests: échecs\n"+failures.join("\n"));
+        log("Tests: ❌ échecs
+ - "+failures.join("
+ - "));
+        alert("Tests: échecs
+"+failures.join("
+"));
       } else {
+        log("Tests: ✅ tous les tests passés");
+        alert("Tests: tous les tests passés");
+      }
+    } else {
         log("Tests: ✅ tous les tests passés");
         alert("Tests: tous les tests passés");
       }
