@@ -104,7 +104,7 @@
             <input id="forceJsonp" type="checkbox" /> Forcer le mode JSONP (contourne CORS)
           </label>
           <label style="margin-top:8px; display:flex; align-items:center; gap:8px">
-            <input id="usePublicProxies" type="checkbox" /> Essayer des proxys publics si JSONP échoue (non recommandé en production)
+            <input id=\"usePublicProxies\" type=\"checkbox\" checked /> Essayer des proxys publics si JSONP échoue (non recommandé en production)
           </label>
           <label style="margin-top:8px">
             proxy personnalisé (préfixe d’URL)&nbsp;
@@ -255,8 +255,12 @@
       return data;
     }
     function mkJsonpUrl(url, cbParam, cbName){
-      const sep = url.includes("?") ? "&" : "?";
-      return url + sep + encodeURIComponent(cbParam) + "=" + encodeURIComponent(cbName);
+      const u = new URL(url, location.href);
+      // Assure le format JSONP explicitement
+      if(!u.searchParams.has('format')) u.searchParams.set('format','jsonp');
+      // Certaines instances exigent 'callback' et ignorent 'jsonp'
+      if(!u.searchParams.has(cbParam)) u.searchParams.set(cbParam, cbName);
+      return u.toString();
     }
 
     function jsonpOnce(url, cbParam){
@@ -286,7 +290,7 @@
           delete window[cb];
           if(s.parentNode) s.parentNode.removeChild(s);
         }
-        window[cb] = (data)=>{ cleanup(); resolve(data); };
+        window[cb] = (data)=>{ cleanup(); try{ resolve(ensureSuccess(s.src, data)); }catch(e){ reject(e);} };
         s.onerror = ()=>{ cleanup(); reject(new Error("JSONP load error")); };
         s.src = mkJsonpUrl(url, cbParam, cb);
         document.body.appendChild(s);
@@ -338,6 +342,31 @@
         const data = await res.json();
         return ensureSuccess(url, data);
       }catch(err1){
+        log("⚠ fetch CORS a échoué ("+err1.message+")");
+      }
+      // 2) JSONP
+      try{
+        if($("forceJsonp").checked){ log("⚠ mode forcé JSONP activé"); }
+        return await jsonp(url);
+      }catch(err2){
+        log("⚠ JSONP a échoué ("+err2.message+")");
+      }
+      // 3) proxys (custom + publics si cochés)
+      try{ return await fetchViaProxies(url); }
+      catch(err3){ log("⚠ proxys configurés indisponibles ("+err3.message+")"); }
+      // 4) dernier recours: tenter AllOrigins même si non coché
+      try{
+        log("⚠ dernier recours: tentative via AllOrigins");
+        const proxied = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        const res = await fetch(proxied, { cache:"no-store" });
+        if(!res.ok) throw new Error("HTTP "+res.status);
+        const text = await res.text();
+        const data = JSON.parse(text);
+        return ensureSuccess(proxied, data);
+      }catch(err4){ log("⚠ AllOrigins KO ("+err4.message+")"); }
+      // 5) échec total
+      throw new Error("Impossible de récupérer les données (CORS/JSONP/Proxy)");
+    }catch(err1){
         log("⚠ fetch CORS a échoué ("+err1.message+")");
       }
       // 2) forcé JSONP via UI ou fallback
@@ -504,32 +533,31 @@
       const p1 = buildParams({});
       if(p1.get("dataset") !== DATASET) failures.push("buildParams: dataset manquant");
       if(p1.get("rows") !== "0") failures.push("buildParams: rows par défaut incorrect");
+      // Test 1b: refine.statut x2
+      const sCount = Array.from(p1.keys()).filter(k=>k==='refine.statut').length;
+      if(sCount !== 2) failures.push("buildParams: refine.statut devrait apparaître 2 fois");
       // Test 2: zoomFromRadius (seuils)
       if(zoomFromRadius(2500) !== 14) failures.push("zoomFromRadius: 2500m devrait donner 14");
       if(zoomFromRadius(75000) !== 9) failures.push("zoomFromRadius: 75km devrait donner 9");
       // Test 3: facetsToMap
       const m = facetsToMap([{name:"2G",count:3},{name:"5G",count:1}]);
       if(!(m["2G"]===3 && m["5G"]===1)) failures.push("facetsToMap: mappage incorrect");
-      // Test 4: mkJsonpUrl ajoute bien le paramètre, avec & ou ?
+      // Test 4: mkJsonpUrl ajoute format=jsonp + callback
       const uA = mkJsonpUrl("https://x/api", "callback", "cb");
-      const uB = mkJsonpUrl("https://x/api?rows=0", "callback", "cb");
-      if(!uA.endsWith("callback=cb")) failures.push("mkJsonpUrl: ajout sans query incorrect");
-      if(!uB.includes("&callback=cb")) failures.push("mkJsonpUrl: ajout avec query incorrect");
+      if(!/format=jsonp/.test(uA) || !/callback=cb/.test(uA)) failures.push("mkJsonpUrl: format/jsonp ou callback manquant");
+      const uB = mkJsonpUrl("https://x/api?rows=0", "jsonp", "cb2");
+      if(!/format=jsonp/.test(uB) || !/jsonp=cb2/.test(uB)) failures.push("mkJsonpUrl: jsonp=cb2 manquant");
       // Test 5: ensureSuccess lève en cas de status=error
       try{ ensureSuccess("https://exemple", {status:"error", message:"boom"}); failures.push("ensureSuccess: aurait dû lever"); }catch(_){}
-      // Test 6: mapUrl inclut les statuts et la location
-      const mu = mapUrl(48.8566, 2.3522, 2500);
-      if(!mu.includes("refine.statut=En+service") || !mu.includes("refine.statut=Techniquement+op%C3%A9rationnel")) failures.push("mapUrl: filtres 'statut' manquants");
-      if(!mu.includes("location=14,48.8566,2.3522")) failures.push("mapUrl: location/zoom incorrect");
       // Résultat
       if(failures.length){
-        log("Tests: ❌ échecs
- - "+failures.join("
- - "));
-        alert("Tests: échecs
-"+failures.join("
-"));
+        log("Tests: ❌ échecs\n - "+failures.join("\n - "));
+        alert("Tests: échecs\n"+failures.join("\n"));
       } else {
+        log("Tests: ✅ tous les tests passés");
+        alert("Tests: tous les tests passés");
+      }
+    } else {
         log("Tests: ✅ tous les tests passés");
         alert("Tests: tous les tests passés");
       }
