@@ -1,432 +1,252 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Cartographie des antennes mobiles</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <title>Compteur pylônes & antennes – ANFR (Explore v2.1)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body{font-family:Arial,sans-serif;background:#f4f4f4;color:#333;margin:0}
-    #mapForm{display:flex;flex-direction:column;align-items:center;justify-content:center;margin:auto;width:90%;max-width:500px}
-    input[type="text"],input[type="number"],input[type="radio"],input[type="submit"],input[type="button"]{border:1px solid #ccc;border-radius:4px;padding:8px 12px;margin:4px 0;width:calc(100% - 24px)}
-    input[type="submit"],input[type="button"]{background:#4CAF50;color:#fff;cursor:pointer}
-    input[type="submit"]:hover,input[type="button"]:hover{background:#45a049}
-    #infoButton{background:#007bff;color:#fff;padding:10px 15px;border:none;border-radius:4px;cursor:pointer;margin-top:10px}
-    #infoButton:hover{background:#0056b3}
-    #infoSection{margin-top:10px;border:1px solid #ddd;padding:15px;border-radius:4px;background:#f9f9f9;display:none}
-    .operatorName,.loadingMessage{margin-top:20px;text-align:center}
-    .searchZoneLabel{font-size:1.2em;font-weight:bold;margin-top:15px;text-align:center}
-    .region-selector{display:flex;justify-content:center;margin:20px 0}
-    .region-label{border:2px solid #007bff;padding:10px 20px;margin:0 10px;border-radius:5px;cursor:pointer;transition:background-color .3s ease}
-    #antennasTable,#totalPylonsSection{display:none}
-    input[type="radio"]{display:none}
-    input[type="radio"]:checked + .region-label{background:#007bff;color:#fff}
-    #antennasTable button{background:#007bff;color:#fff;border:none;padding:10px 15px;text-align:center;display:inline-block;font-size:16px;margin:4px 2px;cursor:pointer;border-radius:5px}
-    #antennasTable{width:100%;border-collapse:collapse}
-    .operator-logo{height:30px;width:auto;vertical-align:middle;margin-right:5px}
-    #antennasTable th,#antennasTable td{border:1px solid #ddd;padding:8px 0;text-align:center}
-    @media screen and (max-width:600px){
-      #antennasTable thead{display:none}
-      #antennasTable,#antennasTable tbody,#antennasTable tr,#antennasTable td{display:block}
-      #antennasTable tr{margin-bottom:15px}
-      #antennasTable td{position:relative}
-      #antennasTable td::before{content:attr(data-label);font-weight:bold;display:block;position:absolute;left:0;width:50%;padding-left:15px;text-align:left}
-    }
-    @media (max-width:767px){
-      input[type="text"],input[type="number"],input[type="radio"],input[type="submit"],input[type="button"],.operatorName{font-size:1.2em;padding:12px 15px}
-      #mapContainer iframe{height:300px}
-    }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; line-height: 1.4; margin: 2rem; }
+    label { display:block; margin-top:.5rem; }
+    input, select, button { font-size: 1rem; padding:.35rem .5rem; }
+    table { border-collapse: collapse; margin-top:1rem; width:100%; max-width:1100px; }
+    th, td { border:1px solid #ddd; padding:.4rem .5rem; text-align:right; }
+    th:first-child, td:first-child { text-align:left; }
+    tfoot td { font-weight:700; }
+    .row { display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end; margin:.5rem 0 1rem; }
+    .muted { color:#666; font-size:.9rem; }
+    .ok { color: #116611; }
+    .warn { color: #995500; }
+    .error { color: #992222; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   </style>
 </head>
 <body>
-  <button id="infoButton">Informations</button>
-  <div id="infoSection">
-    <p>
-      Cette page compte et visualise les antennes de téléphonie mobile et les pylônes
-      par opérateur dans un rayon donné à partir de coordonnées (API ANFR / Opendatasoft).
-    </p>
-    <p>
-      Attention&nbsp;: par défaut, la facette <code>statut</code> est conjonctive (ET).
-      Nous activons ici <code>disjunctive.statut=true</code> pour obtenir <strong>En service OU Techniquement opérationnel</strong>.
-    </p>
-    <p>
-      Données&nbsp;: <a href="https://data.anfr.fr/visualisation/information/?id=observatoire_2g_3g_4g" target="_blank" rel="noopener">
-      Données sur les réseaux mobiles</a> (ANFR).
-    </p>
-    <button id="updateDateButton">Afficher la date de dernière mise à jour du jeu de données de l'ANFR</button>
-    <p id="lastUpdateDate"></p>
+  <h1>Compter pylônes et antennes par opérateur (ANFR / Explore v2.1)</h1>
+
+  <div class="row">
+    <label>Latitude<br><input id="lat" type="number" step="any" value="48.8566"></label>
+    <label>Longitude<br><input id="lon" type="number" step="any" value="2.3522"></label>
+    <label>Rayon (mètres)<br><input id="radius" type="number" step="1" value="2500"></label>
+    <label>Région<br>
+      <select id="region">
+        <option value="metropole" selected>métropole</option>
+        <option value="antilles">antilles-guyane</option>
+      </select>
+    </label>
+    <button id="run">Calculer</button>
+    <button id="openMap">Ouvrir la carte ANFR</button>
   </div>
 
-  <form id="mapForm">
-    <label for="latitude">Latitude :</label>
-    <input type="text" id="latitude" name="latitude" required /><br /><br />
+  <div id="meta" class="muted">Chargement du schéma du jeu de données…</div>
 
-    <label for="longitude">Longitude :</label>
-    <input type="text" id="longitude" name="longitude" required /><br /><br />
-
-    <input type="button" value="Utiliser ma position actuelle" id="geolocateButton" /><br /><br />
-
-    <label for="radius">Rayon (en mètres) :</label>
-    <input type="number" id="radius" name="radius" value="2500" required /><br /><br />
-
-    <label>Zone de recherche :</label><br /><br />
-    <div class="region-selector">
-      <input type="radio" id="metropole" name="region" value="metropole" checked />
-      <label for="metropole" class="region-label">Métropole</label>
-
-      <input type="radio" id="antilles" name="region" value="antilles" />
-      <label for="antilles" class="region-label">Antilles-Guyane</label>
-    </div>
-    <br />
-
-    <input type="submit" value="Afficher les antennes" />
-  </form>
-
-  <table id="antennasTable">
+  <table id="tbl">
     <thead>
       <tr>
-        <th>Opérateur</th>
-        <th>Total d'antennes</th>
-        <th>2G</th>
-        <th>3G</th>
-        <th>4G</th>
-        <th>5G</th>
-        <th>Nombre de pylônes</th>
+        <th>opérateur</th>
+        <th>pylônes (supports) uniques</th>
+        <th>2G</th><th>3G</th><th>4G</th><th>5G</th>
+        <th>total antennes</th>
       </tr>
     </thead>
-    <tbody></tbody>
+    <tbody id="body"></tbody>
+    <tfoot>
+      <tr>
+        <td>tous opérateurs</td>
+        <td id="sumPylons">–</td>
+        <td id="sum2g">–</td><td id="sum3g">–</td><td id="sum4g">–</td><td id="sum5g">–</td>
+        <td id="sumAllAnt">–</td>
+      </tr>
+    </tfoot>
   </table>
 
-  <div id="totalPylonsSection" style="text-align:center;margin-top:20px">
-    <h2>Nombre total de pylônes dans la zone</h2>
-    <p id="totalPylons">Patientez, chargement en cours ...</p>
-  </div>
+  <p class="muted">
+    Source : jeu <span class="mono">observatoire_2g_3g_4g</span> – ANFR. Comptage limité aux statuts <em>En service</em> (2G/3G/4G)
+    et <em>Techniquement opérationnel</em> (5G). Les filtres géographiques utilisent un cercle via <span class="mono">within_distance()</span>.
+  </p>
 
 <script>
-  // ---------- Utilitaires ----------
-  function isValidLatitude(lat){lat=parseFloat(lat);return !isNaN(lat)&&lat>=-90&&lat<=90;}
-  function isValidLongitude(lon){lon=parseFloat(lon);return !isNaN(lon)&&lon>=-180&&lon<=180;}
-  function isValidRadius(radius){radius=parseFloat(radius);const maxRadius=6371000;return !isNaN(radius)&&radius>0&&radius<=maxRadius;}
-  const fmt=n=>new Intl.NumberFormat('fr-FR').format(n);
+(async () => {
+  const DATASET = "observatoire_2g_3g_4g";
+  const BASE = "https://data.anfr.fr/api/explore/v2.1/catalog/datasets/" + DATASET + "/records";
+  const INFO = "https://data.anfr.fr/api/explore/v2.1/catalog/datasets/" + DATASET;
 
-  function makeParams(entries){
-    const p=new URLSearchParams();
-    for(const [k,v] of entries){
-      if(Array.isArray(v)) v.forEach(x=>p.append(k,x));
-      else if(v!==undefined&&v!==null) p.append(k,v);
-    }
-    return p;
-  }
+  // opérateurs par zone (identifiants exacts de la facette adm_lb_nom)
+  const OPS_METRO = ["ORANGE","BOUYGUES TELECOM","SFR","FREE MOBILE"];
+  const OPS_ANTIL = ["ORANGE","FREE CARAIBES","DIGICEL","OUTREMER TELECOM"];
 
-  async function fetchJSON(url,{timeoutMs=20000}={}){
-    const ctl=new AbortController();const id=setTimeout(()=>ctl.abort(),timeoutMs);
-    try{
-      const r=await fetch(url,{headers:{'Accept':'application/json'},signal:ctl.signal});
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      return await r.json();
-    } finally { clearTimeout(id); }
-  }
+  let GEO_FIELD = "geo_point_2d"; // valeur de repli (confirmée sur la page d’info ANFR)
+  let lastUpdated = null;
 
-  // ---------- Logos ----------
-  function getOperatorLogoUrl(operator){
-    const logos={
-      "BOUYGUES TELECOM":"https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/Bouygues_Telecom.svg",
-      "DIGICEL":"https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/Digicel.svg",
-      "ORANGE CARAIBES":"https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/Orange_Caraibe.svg",
-      "ORANGE":"https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/Orange.svg",
-      "SFR":"https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/SFR.svg",
-      "SFR CARAIBES":"https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/SFR_caraibe.svg",
-      "FREE MOBILE":"https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/Free_mobile.svg",
-      "FREE CARAIBES":"https://cdn.jsdelivr.net/gh/Deadier/deadier.github.io/logos_operateurs/Free_caraibe.svg",
-    };
-    return logos[operator]||"";
-  }
-
-  // ---------- Mappage noms opérateurs (affichage <-> dataset) ----------
-  function toDatasetOperator(displayName, region){
-    if(region==="antilles"){
-      if(displayName==="SFR CARAIBES") return "OUTREMER TELECOM";
-      if(displayName==="ORANGE CARAIBES") return "ORANGE";
-    }
-    return displayName;
-  }
-  function toDisplayOperator(datasetName, region){
-    if(region==="antilles"){
-      if(datasetName==="OUTREMER TELECOM") return "SFR CARAIBES";
-      if(datasetName==="ORANGE") return "ORANGE CARAIBES";
-    }
-    return datasetName;
-  }
-
-  function determineOperators(region){
-    if(region==="metropole"){
-      return ["ORANGE","BOUYGUES TELECOM","SFR","FREE MOBILE"];
-    } else {
-      return ["ORANGE CARAIBES","FREE CARAIBES","DIGICEL","SFR CARAIBES"];
+  // récupère le schéma et identifie le premier champ de type géographique (geo_point puis geo_shape)
+  async function detectGeoField() {
+    try {
+      const r = await fetch(INFO);
+      if (!r.ok) throw new Error("info HTTP " + r.status);
+      const j = await r.json();
+      const fields = (j && j.dataset && j.dataset.schema && j.dataset.schema.fields) || [];
+      const geoPoint = fields.find(f => f.type && f.type.toLowerCase().includes("geo_point"));
+      const geoShape = fields.find(f => f.type && f.type.toLowerCase().includes("geo_shape"));
+      GEO_FIELD = geoPoint?.name || geoShape?.name || GEO_FIELD;
+      lastUpdated = j?.dataset?.metas?.data_processed || j?.dataset?.metas?.modified;
+      document.getElementById("meta").innerHTML =
+        `Champ géographique détecté : <span class="mono ok">${GEO_FIELD}</span>` +
+        (lastUpdated ? ` — dernière mise à jour dataset : <span class="mono">${lastUpdated}</span>` : "");
+    } catch (e) {
+      document.getElementById("meta").innerHTML =
+        `Impossible de lire le schéma du dataset (utilisation du repli <span class="mono warn">${GEO_FIELD}</span>).`;
     }
   }
 
-  // ---------- Construction URLs ----------
-  const BASE = "https://data.anfr.fr/d4c/api/records/1.0/search/";
-
-  function urlSearch(params){ return BASE+"?"+params.toString(); }
-
-  // ---------- Requêtes métier ----------
-  // comptes par génération pour UN opérateur (via facette generation)
-  async function getGenerationsForOperator(operatorDisplay, lat, lon, radius, region){
-    const opDataset = toDatasetOperator(operatorDisplay, region);
-    const params = makeParams([
-      ["dataset", "observatoire_2g_3g_4g"],
-      ["rows", "0"], // on ne veut que les facettes
-      ["disjunctive.statut", "true"],
-      ["refine.statut", ["En service", "Techniquement opérationnel"]],
-      ["refine.adm_lb_nom", opDataset],
-      ["geofilter.distance", `${lat},${lon},${radius}`],
-      ["facet", "generation"]
-    ]);
-    const data = await fetchJSON(urlSearch(params));
-    const res = {"2G":0,"3G":0,"4G":0,"5G":0};
-    const group = (data.facet_groups||[]).find(g=>g.name==="generation");
-    if(group && Array.isArray(group.facets)){
-      for(const f of group.facets){ if(res[f.name]!==undefined) res[f.name]=f.count; }
-    }
-    return res;
+  // utilitaire de construction d’URL Explore v2.1
+  function buildUrl(params) {
+    const qs = new URLSearchParams(params);
+    return BASE + "?" + qs.toString();
   }
 
-  // pylônes uniques pour UN opérateur (facette sup_id, puis repli strict si nécessaire)
-  async function countPylonsForOperator(operatorDisplay, lat, lon, radius, region){
-    const opDataset = toDatasetOperator(operatorDisplay, region);
-    // 1) tentative via facette
-    let params = makeParams([
-      ["dataset", "observatoire_2g_3g_4g"],
-      ["rows","0"],
-      ["disjunctive.statut","true"],
-      ["refine.statut", ["En service","Techniquement opérationnel"]],
-      ["refine.adm_lb_nom", opDataset],
-      ["geofilter.distance", `${lat},${lon},${radius}`],
-      ["facet", "sup_id"],
-      ["facet.limit","-1"] // si le portail l'accepte, lève la troncature
-    ]);
-    try{
-      const data = await fetchJSON(urlSearch(params));
-      const grp = (data.facet_groups||[]).find(g=>g.name==="sup_id");
-      if(grp && grp.facets) return grp.facets.length;
-    }catch(_){/* on tente le repli */}
-    // 2) repli strict : on récupère les sup_id et on déduplique côté client
-    const uniq = new Set();
-    const ROWS = 1000;
-    for(let start=0; start<50000; start+=ROWS){
-      params = makeParams([
-        ["dataset","observatoire_2g_3g_4g"],
-        ["rows", String(ROWS)],
-        ["start", String(start)],
-        ["fields","sup_id"],
-        ["disjunctive.statut","true"],
-        ["refine.statut", ["En service","Techniquement opérationnel"]],
-        ["refine.adm_lb_nom", opDataset],
-        ["geofilter.distance", `${lat},${lon},${radius}`]
-      ]);
-      const page = await fetchJSON(urlSearch(params));
-      const recs = page.records || [];
-      for(const r of recs){ if(r.fields && r.fields.sup_id!=null) uniq.add(String(r.fields.sup_id)); }
-      if(recs.length < ROWS) break;
-    }
-    return uniq.size;
+  // prédicat géographique (cercle) – WKT POINT(lon lat), distance en mètres
+  function whereWithin(lat, lon, radius) {
+    const wkt = `POINT(${lon} ${lat})`;
+    return `within_distance(${GEO_FIELD}, GEOM'${wkt}', ${radius} m)`;
   }
 
-  // total pylônes (tous opérateurs)
-  async function countTotalPylons(lat, lon, radius){
-    // 1) facette
-    let params = makeParams([
-      ["dataset","observatoire_2g_3g_4g"],
-      ["rows","0"],
-      ["disjunctive.statut","true"],
-      ["refine.statut", ["En service","Techniquement opérationnel"]],
-      ["geofilter.distance", `${lat},${lon},${radius}`],
-      ["facet","sup_id"],
-      ["facet.limit","-1"]
-    ]);
-    try{
-      const data = await fetchJSON(urlSearch(params));
-      const grp = (data.facet_groups||[]).find(g=>g.name==="sup_id");
-      if(grp && grp.facets) return grp.facets.length;
-    }catch(_){/* repli */}
-    // 2) repli strict
-    const uniq = new Set();
-    const ROWS = 1000;
-    for(let start=0; start<50000; start+=ROWS){
-      params = makeParams([
-        ["dataset","observatoire_2g_3g_4g"],
-        ["rows", String(ROWS)],
-        ["start", String(start)],
-        ["fields","sup_id"],
-        ["disjunctive.statut","true"],
-        ["refine.statut", ["En service","Techniquement opérationnel"]],
-        ["geofilter.distance", `${lat},${lon},${radius}`]
-      ]);
-      const page = await fetchJSON(urlSearch(params));
-      const recs = page.records || [];
-      for(const r of recs){ if(r.fields && r.fields.sup_id!=null) uniq.add(String(r.fields.sup_id)); }
-      if(recs.length < ROWS) break;
-    }
-    return uniq.size;
+  // filtres de statut « actifs »
+  const ACTIVE_REFINES = [
+    "statut:En service",
+    "statut:Techniquement opérationnel"
+  ];
+
+  // compte antennes par génération pour un opérateur
+  async function countsByGeneration(op, lat, lon, radius) {
+    const url = buildUrl({
+      select: "generation, count(1) as n",
+      where: whereWithin(lat, lon, radius),
+      "group_by": "generation",
+      limit: "10",
+      lang: "fr",
+      refine: [
+        `adm_lb_nom:${op}`,
+        ...ACTIVE_REFINES
+      ]
+    });
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("HTTP " + r.status + " on " + url);
+    return (await r.json()).results || [];
   }
 
-  // ---------- Affichage ----------
-  function calculateZoomLevel(radius){
-    radius=parseFloat(radius);
-    if(radius<=35) return 20;
-    else if(radius<=70) return 19;
-    else if(radius<=140) return 18;
-    else if(radius<=270) return 17;
-    else if(radius<=550) return 16;
-    else if(radius<=1100) return 15;
-    else if(radius<=2200) return 14;
-    else if(radius<=4400) return 13;
-    else if(radius<=8800) return 12;
-    else return 11;
+  // compte pylônes uniques (supports) pour un opérateur
+  async function countDistinctPylons(op, lat, lon, radius) {
+    const url = buildUrl({
+      select: "count(distinct(sup_id)) as pylones",
+      where: whereWithin(lat, lon, radius),
+      limit: "1",
+      lang: "fr",
+      refine: [
+        `adm_lb_nom:${op}`,
+        ...ACTIVE_REFINES
+      ]
+    });
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("HTTP " + r.status + " on " + url);
+    const res = (await r.json()).results?.[0];
+    return res ? (res.pylones ?? 0) : 0;
   }
 
-  function buildMapUrl(operatorDisplay, latitude, longitude, radius, region){
-    const operatorDataset = toDatasetOperator(operatorDisplay, region);
-    const zoom = calculateZoomLevel(radius);
-    const params = new URLSearchParams();
-    params.set("id","observatoire_2g_3g_4g");
-    params.append("refine.adm_lb_nom", operatorDataset);
-    params.append("refine.statut", "En service");
-    params.append("refine.statut", "Techniquement opérationnel");
-    params.set("geofilter.distance", `${latitude},${longitude},${radius}`);
-    params.set("location", `${zoom},${latitude},${longitude}`);
-    params.set("datasetcard", "true");
-    params.set("scrollWheelZoom", "true");
-    return "https://data.anfr.fr/visualisation/frame/map/?" + params.toString();
+  // compte pylônes uniques tous opérateurs
+  async function countAllPylons(lat, lon, radius) {
+    const url = buildUrl({
+      select: "count(distinct(sup_id)) as pylones",
+      where: whereWithin(lat, lon, radius),
+      limit: "1",
+      lang: "fr",
+      refine: ACTIVE_REFINES
+    });
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("HTTP " + r.status + " on " + url);
+    const res = (await r.json()).results?.[0];
+    return res ? (res.pylones ?? 0) : 0;
   }
 
-  function openMapInNewTab(operator, latitude, longitude, radius, region){
-    window.open(buildMapUrl(operator, latitude, longitude, radius, region), "_blank");
+  // additionne proprement les générations (manque = 0)
+  function toRow(operator, groups) {
+    const m = new Map(groups.map(g => [String(g.generation).toUpperCase(), Number(g.n)]));
+    const g2 = m.get("2G") || 0, g3 = m.get("3G") || 0, g4 = m.get("4G") || 0, g5 = m.get("5G") || 0;
+    return { operator, g2, g3, g4, g5, total: g2+g3+g4+g5 };
   }
 
-  function showResults(){
-    document.getElementById("antennasTable").style.display="table";
-    document.getElementById("totalPylonsSection").style.display="block";
-  }
+  // UI
+  async function run() {
+    const lat = Number(document.getElementById("lat").value);
+    const lon = Number(document.getElementById("lon").value);
+    const radius = Math.max(1, Number(document.getElementById("radius").value|0));
+    const region = document.getElementById("region").value;
+    const ops = (region === "antilles") ? OPS_ANTIL : OPS_METRO;
 
-  async function displayOperatorRow(operatorDisplay, region, latitude, longitude, radius){
-    // 1) comptes par génération (une seule requête)
-    const gen = await getGenerationsForOperator(operatorDisplay, latitude, longitude, radius, region);
-    const total = (gen["2G"]||0)+(gen["3G"]||0)+(gen["4G"]||0)+(gen["5G"]||0);
+    const tbody = document.getElementById("body");
+    tbody.innerHTML = `<tr><td colspan="7" class="muted">Calcul en cours…</td></tr>`;
 
-    // 2) pylônes
-    const pylons = await countPylonsForOperator(operatorDisplay, latitude, longitude, radius, region);
-
-    // 3) rendu
-    const tbody = document.querySelector("#antennasTable tbody");
-    const tr = tbody.insertRow();
-
-    const cellOperator = tr.insertCell();
-    const logo = document.createElement("img");
-    logo.src = getOperatorLogoUrl(operatorDisplay);
-    logo.alt = `Logo ${operatorDisplay}`;
-    logo.className = "operator-logo";
-    cellOperator.appendChild(logo);
-    cellOperator.appendChild(document.createTextNode(" "+operatorDisplay));
-    cellOperator.setAttribute("data-label","Opérateur");
-
-    const cellTotal = tr.insertCell();
-    cellTotal.textContent = fmt(total);
-    cellTotal.setAttribute("data-label","Total d'antennes");
-
-    for(const g of ["2G","3G","4G","5G"]){
-      const td = tr.insertCell();
-      td.textContent = `${fmt(gen[g]||0)} antennes`;
-      td.setAttribute("data-label", g);
-    }
-
-    const cellPyl = tr.insertCell();
-    cellPyl.textContent = `${fmt(pylons)} pylônes`;
-    cellPyl.setAttribute("data-label","Nombre de pylônes");
-
-    const cellBtn = tr.insertCell();
-    const b = document.createElement("button");
-    b.textContent = "Afficher";
-    b.onclick = () => openMapInNewTab(operatorDisplay, latitude, longitude, radius, region);
-    cellBtn.appendChild(b);
-    cellBtn.setAttribute("data-label","Carte");
-  }
-
-  // ---------- Info / MAJ dataset ----------
-  document.getElementById("infoButton").addEventListener("click", function(){
-    const s=document.getElementById("infoSection");
-    s.style.display = (s.style.display==="none"||s.style.display==="") ? "block" : "none";
-  });
-
-  document.getElementById("updateDateButton").addEventListener("click", function(){
-    fetch("https://data.anfr.fr/d4c/api/datasets/2.0/search/?q=observatoire_2g_3g_4g&rows=1")
-      .then(r=>r.json())
-      .then(data=>{
-        const ds = data?.result?.results?.[0];
-        const res = ds?.resources?.[0];
-        const iso = res?.last_modified || ds?.metas?.modified;
-        if(iso){
-          const d=new Date(iso);
-          const formatted = d.toLocaleDateString("fr-FR",{year:"numeric",month:"2-digit",day:"2-digit"})+" "+
-                           d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-          document.getElementById("lastUpdateDate").textContent = "Dernière mise à jour : "+formatted;
-        }else{
-          document.getElementById("lastUpdateDate").textContent = "Date de dernière mise à jour non trouvée";
-        }
-      })
-      .catch(()=>{
-        document.getElementById("lastUpdateDate").textContent = "Erreur lors de la récupération de la date de mise à jour";
+    try {
+      // par opérateur : 2 requêtes (group_by + distinct supports)
+      const promises = ops.map(async op => {
+        const [groups, pylones] = await Promise.all([
+          countsByGeneration(op, lat, lon, radius),
+          countDistinctPylons(op, lat, lon, radius)
+        ]);
+        const row = toRow(op, groups);
+        row.pylones = pylones;
+        return row;
       });
-  });
 
-  // ---------- Géolocalisation ----------
-  document.getElementById("geolocateButton").addEventListener("click", function(){
-    if(navigator.geolocation){
-      navigator.geolocation.getCurrentPosition(
-        pos=>{
-          document.getElementById("latitude").value = pos.coords.latitude.toFixed(6);
-          document.getElementById("longitude").value = pos.coords.longitude.toFixed(6);
-        },
-        err=>{
-          const map={1:"L'utilisateur a refusé la demande de géolocalisation.",2:"Les informations de localisation ne sont pas disponibles.",3:"La demande a expiré."};
-          alert(map[err.code]||"Erreur inconnue.");
-        }
-      );
-    } else {
-      alert("La géolocalisation n'est pas prise en charge par ce navigateur.");
+      const rows = await Promise.all(promises);
+
+      // rendu du tableau
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td>${r.operator}</td>
+          <td>${r.pylones.toLocaleString('fr-FR')}</td>
+          <td>${r.g2.toLocaleString('fr-FR')}</td>
+          <td>${r.g3.toLocaleString('fr-FR')}</td>
+          <td>${r.g4.toLocaleString('fr-FR')}</td>
+          <td>${r.g5.toLocaleString('fr-FR')}</td>
+          <td>${r.total.toLocaleString('fr-FR')}</td>
+        </tr>
+      `).join("");
+
+      // totaux
+      const sum = rows.reduce((a, r) => ({
+        pyl: a.pyl + r.pylones, g2:a.g2+r.g2, g3:a.g3+r.g3, g4:a.g4+r.g4, g5:a.g5+r.g5, tot:a.tot+r.total
+      }), {pyl:0,g2:0,g3:0,g4:0,g5:0,tot:0});
+      document.getElementById("sumPylons").textContent = (await countAllPylons(lat, lon, radius)).toLocaleString('fr-FR');
+      document.getElementById("sum2g").textContent = sum.g2.toLocaleString('fr-FR');
+      document.getElementById("sum3g").textContent = sum.g3.toLocaleString('fr-FR');
+      document.getElementById("sum4g").textContent = sum.g4.toLocaleString('fr-FR');
+      document.getElementById("sum5g").textContent = sum.g5.toLocaleString('fr-FR');
+      document.getElementById("sumAllAnt").textContent = sum.tot.toLocaleString('fr-FR');
+
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="7" class="error">Erreur : ${e.message}</td></tr>`;
     }
-  });
+  }
 
-  // ---------- Soumission ----------
-  document.getElementById("mapForm").addEventListener("submit", async function(e){
-    e.preventDefault();
+  // lien carte ANFR (mêmes filtres principaux)
+  function openMap() {
+    const lat = Number(document.getElementById("lat").value);
+    const lon = Number(document.getElementById("lon").value);
+    const radius = Math.max(1, Number(document.getElementById("radius").value|0));
+    // reprend les statuts « actifs »
+    const url = new URL("https://data.anfr.fr/visualisation/frame/map/");
+    url.searchParams.set("id", DATASET);
+    url.searchParams.append("refine.statut", "En service");
+    url.searchParams.append("refine.statut", "Techniquement opérationnel");
+    url.searchParams.set("geofilter.distance", `${lat},${lon},${radius}`);
+    // centrage/zoom : ANFR accepte location=zoom,lat,lon
+    url.searchParams.set("location", `12,${lat},${lon}`);
+    window.open(url.toString(), "_blank");
+  }
 
-    let latitude  = document.getElementById("latitude").value.replace(",", ".");
-    let longitude = document.getElementById("longitude").value.replace(",", ".");
-    let radius    = document.getElementById("radius").value;
-
-    if(!isValidLatitude(latitude)){ alert("Veuillez entrer une latitude valide (entre -90 et 90)."); return; }
-    if(!isValidLongitude(longitude)){ alert("Veuillez entrer une longitude valide (entre -180 et 180)."); return; }
-    if(!isValidRadius(radius)){ alert("Veuillez entrer un rayon positif et inférieur à 6 371 kilomètres."); return; }
-
-    const region = document.querySelector('input[name="region"]:checked').value;
-    const operators = determineOperators(region);
-
-    document.getElementById("totalPylons").textContent = "Patientez, chargement en cours ...";
-    document.querySelector("#antennasTable tbody").innerHTML = "";
-    showResults();
-
-    // total pylônes (tous opérateurs)
-    countTotalPylons(latitude, longitude, radius)
-      .then(n => document.getElementById("totalPylons").textContent = `Nombre total de pylônes uniques : ${fmt(n)}`)
-      .catch(()=> document.getElementById("totalPylons").textContent = "Erreur lors du calcul du total de pylônes");
-
-    // par opérateur (séquentiel pour limiter la charge)
-    for(const op of operators){
-      await displayOperatorRow(op, region, latitude, longitude, radius);
-    }
-  });
+  await detectGeoField();
+  document.getElementById("run").addEventListener("click", run);
+  document.getElementById("openMap").addEventListener("click", openMap);
+})();
 </script>
 </body>
 </html>
