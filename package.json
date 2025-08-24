@@ -1,0 +1,16 @@
+{
+  "name": "deadier.github.io",
+  "version": "1.0.0",
+  "description": "Ce projet est une application web pour visualiser le nombre d'antennes de téléphonie mobile et le nombre de pylône de support d'antennes dans une zone spécifiée en France. L'utilisateur peut entrer des coordonnées géographiques, un rayon de recherche et sélectionner une région (Métropole ou Antilles-Guyane) pour afficher des informations sur les antennes mobiles dans la zone spécifiée.",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

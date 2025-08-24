@@ -29,6 +29,10 @@ Lors de l'accès aux données JSON fournies par l'ANFR, des problèmes de CORS (
 -   JavaScript
 -   API de l'ANFR pour les données des antennes mobiles
 
+## Tests
+
+Les tests unitaires utilisent [Jest](https://jestjs.io/). Exécutez `npm test` pour lancer la suite de tests.
+
 ## Comment utiliser
 
 1.  **Ouvrir la page web** : https://deadier.github.io/Cartographie%20des%20antennes%20mobiles.html
