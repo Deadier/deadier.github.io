@@ -614,7 +614,13 @@
     // Ajout d'un écouteur d'événement pour le bouton de géolocalisation
     document.getElementById("geolocateButton").addEventListener("click", function () {
       if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(showPosition, showError);
+        // Options pour forcer une position GPS précise et récente
+        const options = {
+          enableHighAccuracy: true,  // Force l'utilisation du GPS au lieu du réseau
+          timeout: 10000,             // Timeout de 10 secondes
+          maximumAge: 0               // Ne pas utiliser de position en cache, toujours récupérer une nouvelle position
+        };
+        navigator.geolocation.getCurrentPosition(showPosition, showError, options);
       } else {
         alert("La géolocalisation n'est pas prise en charge par ce navigateur.");
       }
