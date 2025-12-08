@@ -374,43 +374,57 @@
     }
 
     // Fonction pour afficher le nom de l'opérateur et récupérer le nombre de pylônes
-    function displayOperatorName(operator, region, latitude, longitude, radius) {
+    async function displayOperatorName(operator, region, latitude, longitude, radius) {
       const operatorDisplayName = getOperatorDisplayName(operator, region);
-      updateAntennaSummary(operatorDisplayName, latitude, longitude, radius, region);
+      try {
+        await updateAntennaSummary(operatorDisplayName, latitude, longitude, radius, region);
+      } catch (error) {
+        // L'erreur a déjà été affichée dans updateAntennaSummary
+        console.error("Erreur capturée dans displayOperatorName", error);
+      }
     }
 
     // Fonction pour mettre à jour le résumé avec les pylônes
     async function updateAntennaSummary(operator, latitude, longitude, radius, region) {
-      const tableBody = document.getElementById("antennasTable").getElementsByTagName("tbody")[0];
-      const newRow = tableBody.insertRow();
+      try {
+        const tableBody = document.getElementById("antennasTable").getElementsByTagName("tbody")[0];
+        const newRow = tableBody.insertRow();
 
-      // Colonne Opérateur avec logo
-      const cellOperator = newRow.insertCell();
-      const logoImg = document.createElement("img");
-      logoImg.src = getOperatorLogoUrl(operator);
-      logoImg.alt = `Logo ${operator}`;
-      logoImg.className = "operator-logo";
-      cellOperator.appendChild(logoImg);
-      cellOperator.appendChild(document.createTextNode(` ${operator}`));
-      cellOperator.setAttribute("data-label", "Opérateur");
+        // Colonne Opérateur avec logo
+        const cellOperator = newRow.insertCell();
+        const logoImg = document.createElement("img");
+        logoImg.src = getOperatorLogoUrl(operator);
+        logoImg.alt = `Logo ${operator}`;
+        logoImg.className = "operator-logo";
+        cellOperator.appendChild(logoImg);
+        cellOperator.appendChild(document.createTextNode(` ${operator}`));
+        cellOperator.setAttribute("data-label", "Opérateur");
 
-      // Colonne pour le nombre de pylônes
-      const pylonsCount = await countPylonsForOperator(operator, latitude, longitude, radius, region);
-      const cellPylons = newRow.insertCell();
-      cellPylons.textContent = pylonsCount;
-      cellPylons.setAttribute("data-label", "Nombre de pylônes");
-      cellPylons.setAttribute("data-pylons", pylonsCount); // Stocker la valeur pour le calcul
+        // Colonne pour le nombre de pylônes
+        const pylonsCount = await countPylonsForOperator(operator, latitude, longitude, radius, region);
+        const cellPylons = newRow.insertCell();
+        cellPylons.textContent = pylonsCount;
+        cellPylons.setAttribute("data-label", "Nombre de pylônes");
+        cellPylons.setAttribute("data-pylons", pylonsCount); // Stocker la valeur pour le calcul
 
-      // Colonne pour le bouton Carte
-      const detailButton = document.createElement("button");
-      detailButton.textContent = "Afficher";
-      detailButton.onclick = () => openMapInNewTab(operator, latitude, longitude, radius, region);
-      const cellButton = newRow.insertCell();
-      cellButton.appendChild(detailButton);
-      cellButton.setAttribute("data-label", "Carte");
+        // Colonne pour le bouton Carte
+        const detailButton = document.createElement("button");
+        detailButton.textContent = "Afficher";
+        detailButton.onclick = () => openMapInNewTab(operator, latitude, longitude, radius, region);
+        const cellButton = newRow.insertCell();
+        cellButton.appendChild(detailButton);
+        cellButton.setAttribute("data-label", "Carte");
 
-      // Calculer et afficher la recommandation de périmètre après l'ajout de toutes les lignes
-      updatePerimeterRecommendation();
+        // Calculer et afficher la recommandation de périmètre après l'ajout de toutes les lignes
+        updatePerimeterRecommendation();
+      } catch (error) {
+        console.error("Erreur lors de la mise à jour du résumé pour", operator, error);
+        // Afficher le message d'erreur CORS
+        if (error.name === "TypeError" || error.message.includes("HTTP error") || error.message.includes("Failed to fetch")) {
+          displayErrorMessage(handleError(error));
+        }
+        throw error; // Propager l'erreur pour arrêter les autres requêtes
+      }
     }
 
     // Fonction pour calculer et afficher la recommandation de périmètre
@@ -632,10 +646,18 @@
       document.getElementById("perimeterText").textContent = "Patientez, chargement en cours...";
       showResults();
 
-      // Traitement pour chaque opérateur
-      operators.forEach((op) => {
-        displayOperatorName(op, region, latitude, longitude, radius);
-      });
+      // Traitement pour chaque opérateur (séquentiel pour détecter les erreurs rapidement)
+      (async () => {
+        for (const op of operators) {
+          try {
+            await displayOperatorName(op, region, latitude, longitude, radius);
+          } catch (error) {
+            // Arrêter le traitement des autres opérateurs en cas d'erreur
+            console.error("Arrêt du traitement suite à une erreur");
+            break;
+          }
+        }
+      })();
     });
 
     // Fonction pour déterminer les opérateurs en fonction de la région
@@ -717,11 +739,8 @@
         return uniquePylons.size;
       } catch (error) {
         console.error("Erreur lors de la requête à l'API pour l'opérateur " + operator, error);
-        // Afficher le message d'erreur CORS si nécessaire
-        if (error.name === "TypeError" && error.message.includes("Failed to fetch")) {
-          displayErrorMessage(handleError(new Error("CORS error")));
-        }
-        return 0;
+        // Lancer l'erreur pour qu'elle soit gérée au niveau supérieur
+        throw error;
       }
     }
 
